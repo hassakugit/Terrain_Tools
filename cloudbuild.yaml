@@ -1,19 +1,12 @@
+# Simplified Cloud Build configuration
 steps:
-  # Build the Docker image
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'gcr.io/$PROJECT_ID/terrain-generator:$BUILD_ID', '.']
-  
-  # Push the image to Container Registry
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'gcr.io/$PROJECT_ID/terrain-generator:$BUILD_ID']
-  
-  # Deploy to Cloud Run
+  # Build and deploy directly to Cloud Run without intermediate registry
   - name: 'gcr.io/cloud-builders/gcloud'
     args:
       - 'run'
       - 'deploy'
       - 'terrain-generator'
-      - '--image=gcr.io/$PROJECT_ID/terrain-generator:$BUILD_ID'
+      - '--source=.'
       - '--region=us-central1'
       - '--platform=managed'
       - '--allow-unauthenticated'
@@ -23,14 +16,8 @@ steps:
       - '--max-instances=10'
       - '--set-env-vars=NODE_ENV=production'
 
-# Disable logging completely
+# Enable detailed logging
 options:
-  logging: NONE
-
-# If using a service account
-# serviceAccount: 'projects/$PROJECT_ID/serviceAccounts/your-service-account@$PROJECT_ID.iam.gserviceaccount.com'
+  logging: LEGACY
 
 timeout: '1200s'
-
-images:
-  - 'gcr.io/$PROJECT_ID/terrain-generator:$BUILD_ID'
