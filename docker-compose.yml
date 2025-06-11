@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  terrain-generator:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: terrain-3d-app
+    ports:
+      - "2021:2021"
+    environment:
+      - NODE_ENV=production
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:2021/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "com.docker.desktop.extension.api.v1.title=3D Terrain Generator"
+      - "com.docker.desktop.extension.api.v1.description=Generate 3D printable terrain from Google Maps"
+      - "com.docker.desktop.extension.api.v1.port=2021"
