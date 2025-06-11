@@ -1,6 +1,6 @@
-# Simplified Cloud Build configuration
+# Cloud Build configuration with no logging
 steps:
-  # Build and deploy directly to Cloud Run without intermediate registry
+  # Build and deploy directly to Cloud Run
   - name: 'gcr.io/cloud-builders/gcloud'
     args:
       - 'run'
@@ -16,8 +16,8 @@ steps:
       - '--max-instances=10'
       - '--set-env-vars=NODE_ENV=production'
 
-# Enable detailed logging
+# Use NONE logging to avoid service account issues
 options:
-  logging: LEGACY
+  logging: NONE
 
 timeout: '1200s'
