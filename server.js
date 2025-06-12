@@ -8,22 +8,32 @@ const app = express();
 const PORT = process.env.PORT || 2021;
 const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
 
-// Middleware
+// Middleware with larger limits for high-res processing
 app.use(cors());
-app.use(express.json({ limit: '50mb' }));
+app.use(express.json({ limit: '100mb' }));
 app.use(express.static('public'));
 
-// Enhanced rate limiting for high-volume requests
+// Enhanced rate limiting and memory management
 const requestCounts = new Map();
-const RATE_LIMIT_WINDOW = 60000; // 1 minute
-const MAX_REQUESTS_PER_WINDOW = 3; // Very conservative for high-res requests
+const RATE_LIMIT_WINDOW = 60000;
+const MAX_REQUESTS_PER_WINDOW = 2; // Very conservative for large datasets
 
-// Track ongoing elevation requests with detailed progress
+// Memory-efficient request tracking
 const activeRequests = new Map();
+const MAX_CONCURRENT_REQUESTS = 3;
+const MAX_REQUEST_DURATION = 1800000; // 30 minutes max
 
 function rateLimit(req, res, next) {
     const clientIP = req.ip || req.connection.remoteAddress;
     const now = Date.now();
+    
+    // Check concurrent requests
+    if (activeRequests.size >= MAX_CONCURRENT_REQUESTS) {
+        return res.status(503).json({ 
+            error: 'Server at capacity. Please wait for other requests to complete.',
+            activeRequests: activeRequests.size
+        });
+    }
     
     if (!requestCounts.has(clientIP)) {
         requestCounts.set(clientIP, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
@@ -40,7 +50,8 @@ function rateLimit(req, res, next) {
     
     if (clientData.count >= MAX_REQUESTS_PER_WINDOW) {
         return res.status(429).json({ 
-            error: 'Too many high-resolution requests. Please wait before trying again.' 
+            error: 'Too many requests. Please wait before trying again.',
+            retryAfter: Math.ceil((clientData.resetTime - now) / 1000)
         });
     }
     
@@ -53,54 +64,44 @@ function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function calculateOptimalBatchSize(totalPoints, apiLimitsPerSecond = 10) {
-    // Dynamic batch sizing based on total points and API limits
-    if (totalPoints > 100000) return 50;   // Ultra high-res: very small batches
-    if (totalPoints > 50000) return 75;    // High-res: small batches
-    if (totalPoints > 10000) return 100;   // Medium-res: moderate batches
-    return 150; // Low-res: larger batches
+function forceGarbageCollection() {
+    if (global.gc) {
+        global.gc();
+    }
 }
 
-function calculateOptimalDelay(batchSize, totalBatches) {
-    // Adaptive delay based on batch size and total workload
-    if (totalBatches > 1000) return 200;   // Very large jobs: longer delays
-    if (totalBatches > 500) return 150;    // Large jobs: moderate delays
-    if (totalBatches > 100) return 100;    // Medium jobs: short delays
-    return 50; // Small jobs: minimal delays
-}
-
-// Advanced elevation fetching with intelligent batching and progress tracking
-async function fetchElevationDataAdvanced(locations, apiKey, progressCallback, requestId) {
-    const elevationData = [];
+// Memory-efficient streaming elevation fetcher
+async function fetchElevationDataStream(locations, apiKey, progressCallback, requestId) {
     const totalPoints = locations.length;
+    let elevationData = [];
     
-    // Calculate optimal batch parameters
-    const batchSize = calculateOptimalBatchSize(totalPoints);
+    // Very conservative batching for stability
+    const batchSize = Math.min(75, Math.max(25, Math.floor(1000000 / totalPoints)));
     const totalBatches = Math.ceil(totalPoints / batchSize);
-    const delayBetweenBatches = calculateOptimalDelay(batchSize, totalBatches);
     
-    console.log(`[${requestId}] Processing ${totalPoints} points in ${totalBatches} batches (${batchSize} points/batch, ${delayBetweenBatches}ms delay)`);
+    console.log(`[${requestId}] Stream processing ${totalPoints} points in ${totalBatches} batches (${batchSize} per batch)`);
     
-    const maxRetries = 5; // Increased retries for large datasets
     let successfulBatches = 0;
     let failedBatches = 0;
+    let processedPoints = 0;
     
-    // Process in smaller sub-chunks to handle very large datasets
-    const superBatchSize = 50; // Process 50 batches at a time before longer pause
-    const superBatches = Math.ceil(totalBatches / superBatchSize);
+    // Process in memory-efficient chunks
+    const MEMORY_CHUNK_SIZE = 50; // Process 50 batches then clean memory
+    const totalChunks = Math.ceil(totalBatches / MEMORY_CHUNK_SIZE);
     
-    for (let superBatch = 0; superBatch < superBatches; superBatch++) {
-        const startBatch = superBatch * superBatchSize;
-        const endBatch = Math.min(startBatch + superBatchSize, totalBatches);
+    for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+        const chunkStart = chunkIndex * MEMORY_CHUNK_SIZE;
+        const chunkEnd = Math.min(chunkStart + MEMORY_CHUNK_SIZE, totalBatches);
         
-        console.log(`[${requestId}] Processing super-batch ${superBatch + 1}/${superBatches} (batches ${startBatch + 1}-${endBatch})`);
+        console.log(`[${requestId}] Processing memory chunk ${chunkIndex + 1}/${totalChunks} (batches ${chunkStart + 1}-${chunkEnd})`);
         
-        for (let batchIndex = startBatch; batchIndex < endBatch; batchIndex++) {
+        // Process batches in this chunk
+        for (let batchIndex = chunkStart; batchIndex < chunkEnd; batchIndex++) {
             const startIdx = batchIndex * batchSize;
             const endIdx = Math.min(startIdx + batchSize, totalPoints);
             const batch = locations.slice(startIdx, endIdx);
             
-            // Report progress
+            // Update progress
             const overallProgress = Math.round(((batchIndex + 1) / totalBatches) * 100);
             if (progressCallback) {
                 progressCallback({
@@ -108,21 +109,24 @@ async function fetchElevationDataAdvanced(locations, apiKey, progressCallback, r
                     totalBatches,
                     progress: overallProgress,
                     phase: 'elevation',
-                    pointsProcessed: startIdx,
+                    pointsProcessed: processedPoints,
                     totalPoints,
                     successfulBatches,
-                    failedBatches
+                    failedBatches,
+                    memoryChunk: chunkIndex + 1,
+                    totalChunks
                 });
             }
             
+            // Process batch with retry logic
             let retryCount = 0;
+            const maxRetries = 3;
             let batchSuccess = false;
             
             while (!batchSuccess && retryCount < maxRetries) {
                 try {
-                    // High precision coordinate formatting
                     const locationString = batch.map(loc => 
-                        `${loc.lat.toFixed(8)},${loc.lng.toFixed(8)}`
+                        `${loc.lat.toFixed(6)},${loc.lng.toFixed(6)}`
                     ).join('|');
                     
                     const response = await axios.get('https://maps.googleapis.com/maps/api/elevation/json', {
@@ -130,75 +134,85 @@ async function fetchElevationDataAdvanced(locations, apiKey, progressCallback, r
                             locations: locationString,
                             key: apiKey
                         },
-                        timeout: 30000, // Longer timeout for large requests
+                        timeout: 20000,
                         headers: {
-                            'User-Agent': 'TerrainGenerator/2.0-HighRes'
+                            'User-Agent': 'TerrainGenerator/3.0-Robust',
+                            'Accept': 'application/json'
                         }
                     });
 
-                    if (response.data.status === 'OK') {
-                        elevationData.push(...response.data.results);
+                    if (response.data && response.data.status === 'OK') {
+                        elevationData = elevationData.concat(response.data.results);
+                        processedPoints += batch.length;
                         batchSuccess = true;
                         successfulBatches++;
                         
-                        if (batchIndex % 10 === 0) { // Log every 10 batches
-                            console.log(`[${requestId}] Batch ${batchIndex + 1}/${totalBatches} completed (${overallProgress}%)`);
+                        if (batchIndex % 20 === 0) {
+                            console.log(`[${requestId}] Batch ${batchIndex + 1}/${totalBatches} (${overallProgress}%) - Memory: ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`);
                         }
-                    } else if (response.data.status === 'REQUEST_DENIED') {
-                        throw new Error('API key is invalid or APIs not enabled');
-                    } else if (response.data.status === 'OVER_DAILY_LIMIT') {
-                        throw new Error('API daily limit exceeded');
-                    } else if (response.data.status === 'OVER_QUERY_LIMIT') {
-                        console.log(`[${requestId}] Rate limit on batch ${batchIndex + 1}, retry ${retryCount + 1}/${maxRetries}`);
-                        const waitTime = Math.min(5000 * Math.pow(2, retryCount), 30000); // Exponential backoff, max 30s
+                    } else if (response.data && response.data.status === 'OVER_QUERY_LIMIT') {
+                        const waitTime = Math.min(10000 * Math.pow(2, retryCount), 60000);
+                        console.log(`[${requestId}] Rate limit, waiting ${waitTime}ms...`);
                         await delay(waitTime);
                         retryCount++;
-                        if (retryCount >= maxRetries) {
-                            throw new Error('API rate limit exceeded - dataset too large for current quota');
-                        }
-                    } else if (response.data.status === 'INVALID_REQUEST') {
-                        throw new Error('Invalid request - coordinates may be out of bounds');
+                    } else if (response.data && response.data.status === 'REQUEST_DENIED') {
+                        throw new Error('API key invalid or quota exceeded');
                     } else {
-                        throw new Error(`Elevation API error: ${response.data.status} - ${response.data.error_message || 'Unknown error'}`);
+                        const status = response.data?.status || 'UNKNOWN';
+                        const errorMsg = response.data?.error_message || 'Unknown error';
+                        throw new Error(`API error: ${status} - ${errorMsg}`);
                     }
-                } catch (axiosError) {
+                } catch (error) {
                     retryCount++;
-                    console.error(`[${requestId}] Batch ${batchIndex + 1} attempt ${retryCount} failed:`, axiosError.message);
+                    console.error(`[${requestId}] Batch ${batchIndex + 1} attempt ${retryCount} failed:`, error.message);
                     
-                    if (axiosError.code === 'ECONNABORTED') {
-                        console.log(`[${requestId}] Timeout on batch ${batchIndex + 1}, retrying...`);
-                    } else if (axiosError.response && axiosError.response.status === 400) {
-                        console.warn(`[${requestId}] Bad request on batch ${batchIndex + 1}, skipping...`);
-                        // For high-res processing, we might skip problematic batches rather than fail entirely
-                        batchSuccess = true; // Mark as "success" to continue
+                    if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+                        console.log(`[${requestId}] Timeout, retrying with longer delay...`);
+                        await delay(5000 * retryCount);
+                    } else if (error.response?.status === 400) {
+                        console.warn(`[${requestId}] Bad request, skipping batch ${batchIndex + 1}`);
+                        batchSuccess = true; // Skip this batch
                         failedBatches++;
                         break;
                     } else if (retryCount >= maxRetries) {
+                        console.error(`[${requestId}] Batch ${batchIndex + 1} failed permanently`);
                         failedBatches++;
-                        throw new Error(`Batch ${batchIndex + 1} failed after ${maxRetries} retries: ${axiosError.message}`);
+                        batchSuccess = true; // Continue with next batch
+                        break;
                     }
                     
-                    // Progressive delay on retries
-                    const retryDelay = Math.min(1000 * Math.pow(2, retryCount), 10000);
-                    await delay(retryDelay);
+                    await delay(2000 * retryCount);
                 }
             }
             
             // Adaptive delay between batches
-            if (batchIndex < totalBatches - 1) {
-                await delay(delayBetweenBatches);
+            const delay_ms = Math.min(200, 50 + (totalPoints / 10000));
+            await delay(delay_ms);
+            
+            // Check if request was cancelled or timed out
+            const activeRequest = activeRequests.get(requestId);
+            if (!activeRequest || activeRequest.cancelled) {
+                throw new Error('Request cancelled or timed out');
             }
         }
         
-        // Longer pause between super-batches for very large datasets
-        if (superBatch < superBatches - 1 && superBatches > 1) {
-            console.log(`[${requestId}] Pausing 2s between super-batches...`);
-            await delay(2000);
+        // Memory cleanup between chunks
+        if (chunkIndex < totalChunks - 1) {
+            console.log(`[${requestId}] Cleaning memory after chunk ${chunkIndex + 1}...`);
+            forceGarbageCollection();
+            await delay(1000); // Brief pause for memory cleanup
         }
     }
     
-    console.log(`[${requestId}] Elevation fetching completed: ${successfulBatches} successful, ${failedBatches} failed batches`);
-    return elevationData;
+    const finalDataQuality = totalPoints > 0 ? (elevationData.length / totalPoints) * 100 : 0;
+    console.log(`[${requestId}] Stream processing completed: ${successfulBatches} successful, ${failedBatches} failed batches, ${finalDataQuality.toFixed(1)}% data quality`);
+    
+    return {
+        elevationData,
+        dataQuality: finalDataQuality,
+        successfulBatches,
+        failedBatches
+    };
 }
 
 // Serve the main HTML file
@@ -206,102 +220,116 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Health check endpoint
+// Health check with memory info
 app.get('/health', (req, res) => {
+    const memUsage = process.memoryUsage();
     res.json({ 
         status: 'healthy', 
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
-        activeRequests: activeRequests.size
+        activeRequests: activeRequests.size,
+        memory: {
+            used: Math.round(memUsage.heapUsed / 1024 / 1024) + 'MB',
+            total: Math.round(memUsage.heapTotal / 1024 / 1024) + 'MB',
+            external: Math.round(memUsage.external / 1024 / 1024) + 'MB'
+        }
     });
 });
 
-// Endpoint to get progress of ongoing requests
+// Progress endpoint with error handling
 app.get('/api/progress/:requestId', (req, res) => {
-    const requestId = req.params.requestId;
-    const progress = activeRequests.get(requestId);
-    
-    if (progress) {
-        res.json(progress);
-    } else {
-        res.status(404).json({ error: 'Request not found or completed' });
+    try {
+        const requestId = req.params.requestId;
+        const progress = activeRequests.get(requestId);
+        
+        if (progress) {
+            res.json(progress);
+        } else {
+            res.status(404).json({ 
+                error: 'Request not found or completed',
+                requestId 
+            });
+        }
+    } catch (error) {
+        console.error('Progress endpoint error:', error);
+        res.status(500).json({ 
+            error: 'Internal server error',
+            message: error.message 
+        });
     }
 });
 
-// Enhanced elevation endpoint for high-resolution processing
+// Enhanced elevation endpoint with robust error handling
 app.post('/api/elevation', rateLimit, async (req, res) => {
     const startTime = Date.now();
-    const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    
+    // Set longer timeout for large requests
+    req.setTimeout(MAX_REQUEST_DURATION);
+    res.setTimeout(MAX_REQUEST_DURATION);
     
     try {
         const { bounds, resolution, apiKey } = req.body;
         
-        // Use API key from request first, fallback to server environment variable
         const finalApiKey = apiKey || GOOGLE_MAPS_API_KEY;
         
-        // Validation with much higher limits
+        // Enhanced validation
         if (!finalApiKey) {
-            return res.status(400).json({ error: 'Google Maps API key is required' });
+            return res.status(400).json({ 
+                error: 'Google Maps API key is required',
+                requestId 
+            });
         }
         
-        if (!bounds || !bounds.north || !bounds.south || !bounds.east || !bounds.west) {
-            return res.status(400).json({ error: 'Invalid bounds provided' });
+        if (!bounds || typeof bounds !== 'object') {
+            return res.status(400).json({ 
+                error: 'Invalid bounds provided',
+                requestId 
+            });
         }
         
-        // Much higher resolution limits - up to 2000x2000 grid
-        if (!resolution || resolution < 10 || resolution > 2000) {
-            return res.status(400).json({ error: 'Resolution must be between 10 and 2000' });
+        if (!resolution || resolution < 10 || resolution > 1500) { // Reduced max for stability
+            return res.status(400).json({ 
+                error: 'Resolution must be between 10 and 1500 for optimal stability',
+                requestId 
+            });
         }
         
-        // Check bounds validity
-        if (bounds.north <= bounds.south || bounds.east <= bounds.west) {
-            return res.status(400).json({ error: 'Invalid bounds: north must be > south, east must be > west' });
-        }
-        
-        // Calculate area - much more permissive limits
+        // Calculate area and set conservative limits
         const latDiff = Math.abs(bounds.north - bounds.south);
         const lngDiff = Math.abs(bounds.east - bounds.west);
         const area = latDiff * lngDiff;
         
-        // Dynamic area limits based on resolution (more permissive)
+        // More conservative area limits
         let maxArea;
-        if (resolution > 1500) maxArea = 0.1;      // Ultra high-res: small areas
-        else if (resolution > 1000) maxArea = 0.5;  // Very high-res: moderate areas
-        else if (resolution > 500) maxArea = 2.0;   // High-res: large areas
-        else maxArea = 10.0;                        // Lower-res: very large areas
+        if (resolution > 1000) maxArea = 0.05;
+        else if (resolution > 500) maxArea = 0.2;
+        else if (resolution > 200) maxArea = 1.0;
+        else maxArea = 5.0;
         
         if (area > maxArea) {
             return res.status(400).json({ 
-                error: `Selected area is too large for this resolution. Maximum area: ${maxArea} square degrees. Current area: ${area.toFixed(6)} square degrees.` 
+                error: `Area too large for stability. Max: ${maxArea} sq°, Selected: ${area.toFixed(6)} sq°`,
+                requestId 
             });
         }
 
-        // Check if similar request is already in progress
-        const requestKey = `${bounds.north}-${bounds.south}-${bounds.east}-${bounds.west}-${resolution}`;
-        const existingRequest = Array.from(activeRequests.values()).find(req => req.key === requestKey);
-        if (existingRequest) {
-            return res.status(409).json({ 
-                error: 'A similar request is already being processed.',
-                requestId: existingRequest.id
-            });
-        }
-
-        // Initialize request tracking
+        // Initialize request tracking with timeout
         activeRequests.set(requestId, {
             id: requestId,
-            key: requestKey,
             startTime,
             status: 'initializing',
             progress: 0,
             phase: 'setup',
             bounds,
             resolution,
-            area: area.toFixed(6)
+            area: area.toFixed(6),
+            cancelled: false
         });
 
-        console.log(`[${requestId}] Starting high-resolution processing: ${resolution}x${resolution} grid, area: ${area.toFixed(6)} sq degrees`);
+        console.log(`[${requestId}] Starting robust processing: ${resolution}x${resolution}, area: ${area.toFixed(6)} sq°`);
 
-        // Calculate grid points with high precision
+        // Generate locations with validation
         const latStep = (bounds.north - bounds.south) / resolution;
         const lngStep = (bounds.east - bounds.west) / resolution;
         
@@ -311,7 +339,6 @@ app.post('/api/elevation', rateLimit, async (req, res) => {
                 const lat = bounds.south + (i * latStep);
                 const lng = bounds.west + (j * lngStep);
                 
-                // Validate coordinates with high precision
                 if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
                     locations.push({ lat, lng });
                 }
@@ -319,43 +346,46 @@ app.post('/api/elevation', rateLimit, async (req, res) => {
         }
 
         if (locations.length === 0) {
-            throw new Error('No valid coordinates in the selected area');
+            activeRequests.delete(requestId);
+            return res.status(400).json({ 
+                error: 'No valid coordinates in selected area',
+                requestId 
+            });
         }
 
-        // Update progress
+        // Update request status
         activeRequests.set(requestId, {
             ...activeRequests.get(requestId),
-            status: 'fetching_elevation',
+            status: 'processing',
             totalPoints: locations.length,
-            estimatedBatches: Math.ceil(locations.length / calculateOptimalBatchSize(locations.length))
+            estimatedDuration: Math.ceil(locations.length / 1000) * 30 // Rough estimate
         });
 
-        console.log(`[${requestId}] Generated ${locations.length} elevation points`);
+        console.log(`[${requestId}] Processing ${locations.length} locations`);
 
-        // Use the advanced fetching function with progress callback
-        const elevationData = await fetchElevationDataAdvanced(
+        // Use streaming elevation fetcher
+        const result = await fetchElevationDataStream(
             locations, 
             finalApiKey,
             (progress) => {
-                // Update progress in real-time
-                activeRequests.set(requestId, {
-                    ...activeRequests.get(requestId),
-                    ...progress,
-                    status: 'processing'
-                });
+                const activeRequest = activeRequests.get(requestId);
+                if (activeRequest) {
+                    activeRequests.set(requestId, {
+                        ...activeRequest,
+                        ...progress,
+                        status: 'processing'
+                    });
+                }
             },
             requestId
         );
 
         const processingTime = Date.now() - startTime;
-        console.log(`[${requestId}] High-resolution elevation data processed in ${(processingTime/1000).toFixed(1)}s`);
+        console.log(`[${requestId}] Completed in ${(processingTime/1000).toFixed(1)}s`);
 
         // Final validation
-        const dataQuality = (elevationData.length / locations.length) * 100;
-        console.log(`[${requestId}] Data quality: ${dataQuality.toFixed(1)}% (${elevationData.length}/${locations.length} points)`);
-
-        if (dataQuality < 95 && elevationData.length < 1000) {
-            console.warn(`[${requestId}] Low data quality detected`);
+        if (result.elevationData.length === 0) {
+            throw new Error('No elevation data received - check API key and quotas');
         }
 
         // Update final status
@@ -363,29 +393,32 @@ app.post('/api/elevation', rateLimit, async (req, res) => {
             ...activeRequests.get(requestId),
             status: 'completed',
             progress: 100,
-            dataQuality: dataQuality.toFixed(1)
+            dataQuality: result.dataQuality.toFixed(1)
         });
 
+        // Force garbage collection before sending response
+        forceGarbageCollection();
+
         res.json({
-            elevationData,
+            elevationData: result.elevationData,
             bounds,
             resolution,
             metadata: {
-                points: elevationData.length,
+                points: result.elevationData.length,
                 expectedPoints: locations.length,
-                dataQuality: dataQuality.toFixed(1),
+                dataQuality: result.dataQuality.toFixed(1),
                 processingTime,
                 area: area.toFixed(6),
                 requestId,
                 batchInfo: {
-                    totalBatches: Math.ceil(locations.length / calculateOptimalBatchSize(locations.length)),
-                    batchSize: calculateOptimalBatchSize(locations.length)
+                    successful: result.successfulBatches,
+                    failed: result.failedBatches
                 }
             }
         });
         
     } catch (error) {
-        console.error(`[${requestId}] Error fetching elevation data:`, error);
+        console.error(`[${requestId}] Error:`, error);
         
         // Update error status
         if (activeRequests.has(requestId)) {
@@ -396,55 +429,83 @@ app.post('/api/elevation', rateLimit, async (req, res) => {
             });
         }
         
-        let errorMessage = 'Failed to fetch elevation data';
+        // Return appropriate error response
         let statusCode = 500;
+        let errorMessage = error.message || 'Unknown error occurred';
         
-        if (error.message.includes('API key')) {
+        if (error.message.includes('API key') || error.message.includes('quota')) {
             statusCode = 401;
-            errorMessage = error.message;
-        } else if (error.message.includes('limit') || error.message.includes('quota')) {
-            statusCode = 429;
-            errorMessage = error.message + '. Consider reducing resolution or area size.';
-        } else if (error.message.includes('timeout')) {
+        } else if (error.message.includes('timeout') || error.message.includes('cancelled')) {
             statusCode = 408;
-            errorMessage = 'Request timeout - dataset too large. Try reducing resolution or area.';
-        } else if (error.message.includes('Bad request') || error.message.includes('Invalid request')) {
-            statusCode = 400;
-            errorMessage = error.message;
-        } else {
-            errorMessage = error.message;
+            errorMessage = 'Request timeout - try smaller area or lower resolution';
+        } else if (error.message.includes('limit')) {
+            statusCode = 429;
         }
         
         res.status(statusCode).json({ 
             error: errorMessage,
             timestamp: new Date().toISOString(),
-            requestId
+            requestId,
+            suggestion: 'Try reducing resolution or area size for better stability'
         });
     } finally {
-        // Clean up completed requests after 5 minutes
+        // Cleanup after delay
         setTimeout(() => {
             activeRequests.delete(requestId);
-        }, 300000);
+            forceGarbageCollection();
+        }, 300000); // 5 minutes
     }
 });
 
-// Cleanup old requests periodically
+// Cancel endpoint
+app.post('/api/cancel/:requestId', (req, res) => {
+    const requestId = req.params.requestId;
+    const request = activeRequests.get(requestId);
+    
+    if (request) {
+        request.cancelled = true;
+        activeRequests.set(requestId, request);
+        res.json({ message: 'Request cancellation initiated', requestId });
+    } else {
+        res.status(404).json({ error: 'Request not found', requestId });
+    }
+});
+
+// Cleanup old requests and force garbage collection
 setInterval(() => {
     const now = Date.now();
+    let cleaned = 0;
+    
     for (const [id, request] of activeRequests.entries()) {
-        // Remove requests older than 30 minutes
-        if (now - request.startTime > 1800000) {
-            console.log(`Cleaning up old request: ${id}`);
+        if (now - request.startTime > MAX_REQUEST_DURATION) {
             activeRequests.delete(id);
+            cleaned++;
         }
     }
-}, 600000); // Run every 10 minutes
+    
+    if (cleaned > 0) {
+        console.log(`Cleaned up ${cleaned} old requests`);
+        forceGarbageCollection();
+    }
+}, 300000); // Every 5 minutes
+
+// Memory monitoring
+setInterval(() => {
+    const memUsage = process.memoryUsage();
+    const heapUsedMB = Math.round(memUsage.heapUsed / 1024 / 1024);
+    
+    if (heapUsedMB > 400) { // Alert if using > 400MB
+        console.warn(`High memory usage: ${heapUsedMB}MB - forcing garbage collection`);
+        forceGarbageCollection();
+    }
+}, 60000); // Every minute
 
 // Error handling middleware
 app.use((error, req, res, next) => {
     console.error('Unhandled error:', error);
     res.status(500).json({ 
         error: 'Internal server error',
+        message: error.message,
         timestamp: new Date().toISOString()
     });
 });
@@ -452,26 +513,31 @@ app.use((error, req, res, next) => {
 // 404 handler
 app.use((req, res) => {
     res.status(404).json({ 
-        error: 'Not found',
+        error: 'Endpoint not found',
         path: req.path
     });
 });
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
-    console.log('SIGTERM received, shutting down gracefully');
+function gracefulShutdown(signal) {
+    console.log(`\n${signal} received, shutting down gracefully...`);
+    
+    // Cancel all active requests
+    for (const [id, request] of activeRequests.entries()) {
+        request.cancelled = true;
+    }
+    
     process.exit(0);
-});
+}
 
-process.on('SIGINT', () => {
-    console.log('SIGINT received, shutting down gracefully');
-    process.exit(0);
-});
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🏔️  High-Resolution 3D Terrain Generator running on port ${PORT}`);
-    console.log(`📱 Access the application at: http://localhost:${PORT}`);
-    console.log(`🔧 Health check available at: http://localhost:${PORT}/health`);
-    console.log(`🎯 Maximum resolution: 2000x2000 (4M points)`);
-    console.log(`📏 Maximum area: up to 10 square degrees (depending on resolution)`);
+    console.log(`🏔️  Robust High-Resolution Terrain Generator running on port ${PORT}`);
+    console.log(`📱 Access: http://localhost:${PORT}`);
+    console.log(`🔧 Health: http://localhost:${PORT}/health`);
+    console.log(`🎯 Max resolution: 1500x1500 (optimized for stability)`);
+    console.log(`💾 Memory monitoring: Active`);
+    console.log(`⏱️  Max request duration: ${MAX_REQUEST_DURATION/1000/60} minutes`);
 });
