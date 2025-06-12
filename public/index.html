@@ -1,360 +1,256 @@
-.capability-card {
-            background: rgba(255,255,255,0.1);
-            padding: 15px;
-            border-radius: 8px;
-            text-align: center;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reliable Terrain Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
         }
-
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #333;
+        }
+        
+        .header h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
         .main-content {
             display: grid;
-            grid-template-columns: 1fr 500px;
-            gap: 20px;
-            height: 80vh;
+            grid-template-columns: 2fr 1fr;
+            gap: 30px;
         }
-
-        .map-section {
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        
+        .map-container {
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
             overflow: hidden;
-            position: relative;
         }
-
-        .controls-section {
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            padding: 25px;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            overflow-y: auto;
-        }
-
+        
         #map {
             width: 100%;
-            height: 100%;
+            height: 500px;
         }
-
-        .control-group {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .control-group label {
-            font-weight: 600;
-            color: #555;
-            font-size: 0.9rem;
-        }
-
-        .control-group input, .control-group select {
-            padding: 12px;
-            border: 2px solid #e1e5e9;
+        
+        .controls {
+            background: #f8f9fa;
+            padding: 20px;
             border-radius: 8px;
-            font-size: 1rem;
-            transition: border-color 0.3s ease;
+            border: 2px solid #dee2e6;
         }
-
-        .control-group input:focus, .control-group select:focus {
-            outline: none;
-            border-color: #667eea;
+        
+        .control-group {
+            margin-bottom: 20px;
         }
-
+        
+        .control-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #555;
+        }
+        
+        .control-group input,
+        .control-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
         .button {
-            padding: 15px 25px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            width: 100%;
+            padding: 12px 20px;
+            background: #667eea;
             color: white;
             border: none;
-            border-radius: 8px;
-            font-size: 1rem;
-            font-weight: 600;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
             cursor: pointer;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            margin: 10px 0;
         }
-
+        
         .button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+            background: #5a6fd8;
         }
-
+        
         .button:disabled {
             background: #ccc;
             cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
         }
-
+        
         .button.danger {
-            background: linear-gradient(135deg, #ff4757 0%, #ff3742 100%);
+            background: #dc3545;
         }
-
+        
+        .button.danger:hover {
+            background: #c82333;
+        }
+        
         .status {
             padding: 15px;
-            border-radius: 8px;
-            margin-top: 10px;
+            border-radius: 6px;
+            margin: 15px 0;
             font-weight: 500;
         }
-
+        
         .status.info {
-            background: #e3f2fd;
-            color: #1565c0;
-            border: 1px solid #bbdefb;
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
         }
-
-        .status.error {
-            background: #ffebee;
-            color: #c62828;
-            border: 1px solid #ffcdd2;
-        }
-
+        
         .status.success {
-            background: #e8f5e8;
-            color: #2e7d32;
-            border: 1px solid #c8e6c9;
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
         }
-
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
         .status.warning {
             background: #fff3cd;
             color: #856404;
             border: 1px solid #ffeaa7;
         }
-
+        
+        .progress-container {
+            display: none;
+            background: #e3f2fd;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border: 2px solid #667eea;
+        }
+        
+        .progress-container.active {
+            display: block;
+        }
+        
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 10px;
+            background: #e0e0e0;
+            border-radius: 5px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: #667eea;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .progress-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .progress-stat {
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+            border: 1px solid #ddd;
+        }
+        
+        .progress-stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .progress-stat-value {
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .info-box {
+            background: #f0f8ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .warning-box {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+            color: #856404;
+        }
+        
+        .selection-info {
+            background: #e8f5e8;
+            border: 1px solid #c3e6cb;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+            display: none;
+        }
+        
         .range-group {
             display: flex;
             align-items: center;
             gap: 10px;
         }
-
+        
         .range-group input[type="range"] {
             flex: 1;
         }
-
+        
         .range-value {
             min-width: 50px;
             text-align: center;
-            font-weight: 600;
+            font-weight: bold;
             color: #667eea;
         }
-
-        .instructions {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            border-left: 4px solid #667eea;
-            font-size: 0.9rem;
-            line-height: 1.4;
-        }
-
-        .selection-info {
-            background: #f0f8ff;
-            padding: 12px;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            color: #333;
-            border: 1px solid #d0e7ff;
-        }
-
-        .api-key-section {
-            background: #fff3cd;
-            padding: 15px;
-            border-radius: 8px;
-            border: 1px solid #ffeaa7;
-            margin-bottom: 15px;
-        }
-
-        .chunked-progress-container {
-            display: none;
-            background: linear-gradient(135deg, #f8f9fa 0%, #e3f2fd 100%);
-            padding: 25px;
-            border-radius: 12px;
-            border: 3px solid #667eea;
-            margin: 20px 0;
-            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.2);
-        }
-
-        .chunked-progress-container.active {
-            display: block;
-        }
-
-        .progress-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-
-        .progress-title {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: #333;
-        }
-
-        .progress-subtitle {
-            font-size: 0.9rem;
-            color: #666;
-            margin-top: 5px;
-        }
-
-        .progress-bar {
-            width: 100%;
-            height: 14px;
-            background: #e9ecef;
-            border-radius: 7px;
-            overflow: hidden;
-            margin: 15px 0;
-            position: relative;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            width: 0%;
-            transition: width 0.5s ease;
-            position: relative;
-        }
-
-        .progress-fill::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(90deg, 
-                transparent 0%, 
-                rgba(255,255,255,0.4) 50%, 
-                transparent 100%);
-            animation: shimmer 2s infinite;
-        }
-
-        @keyframes shimmer {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
-        }
-
-        .chunk-progress-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin: 20px 0;
-        }
-
-        .chunk-stat {
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            text-align: center;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-
-        .chunk-stat-label {
-            font-size: 0.8rem;
-            color: #888;
-            margin-bottom: 5px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .chunk-stat-value {
-            font-size: 1.2rem;
-            font-weight: 700;
-            color: #333;
-        }
-
-        .chunk-grid-visual {
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 15px 0;
-            text-align: center;
-        }
-
-        .chunk-grid {
-            display: inline-grid;
-            gap: 2px;
-            margin: 10px 0;
-        }
-
-        .chunk-cell {
-            width: 16px;
-            height: 16px;
-            border-radius: 3px;
-            border: 1px solid #ddd;
-            background: #f8f9fa;
-            transition: all 0.3s ease;
-        }
-
-        .chunk-cell.completed {
-            background: #28a745;
-            border-color: #28a745;
-        }
-
-        .chunk-cell.processing {
-            background: #ffc107;
-            border-color: #ffc107;
-            animation: pulse 1s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.6; }
-        }
-
-        .area-info {
-            background: #e8f5e8;
-            padding: 10px;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            color: #2e7d32;
-            border: 1px solid #c8e6c9;
-            margin-top: 5px;
-        }
-
-        .warning-info {
-            background: #fff3cd;
-            padding: 10px;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            color: #856404;
-            border: 1px solid #ffeaa7;
-            margin-top: 5px;
-        }
-
-        .resolution-info {
-            background: #f0f4ff;
-            padding: 12px;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            margin-top: 8px;
-            border: 1px solid #d0e0ff;
-        }
-
-        .chunked-info {
-            background: #e8f4fd;
-            padding: 12px;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            margin-top: 8px;
-            border: 1px solid #b3d9ff;
-            color: #1565c0;
-        }
-
-        .estimated-time {
-            background: #e8f4fd;
-            padding: 10px;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            color: #1565c0;
-            text-align: center;
-            margin-top: 8px;
-            font-weight: 600;
-        }
-
-        @media (max-width: 1400px) {
+        
+        @media (max-width: 768px) {
             .main-content {
                 grid-template-columns: 1fr;
-                grid-template-rows: 60vh auto;
+            }
+            
+            #map {
+                height: 400px;
             }
         }
     </style>
@@ -362,156 +258,102 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🔧 Fixed High-Resolution Terrain Generator</h1>
-            <p>Stable chunked processing with conservative limits for reliable results</p>
-        </div>
-
-        <div class="capabilities-banner">
-            <strong>🛠️ Fixed & Optimized Chunked Processing</strong>
-            <div class="capabilities-grid">
-                <div class="capability-card">
-                    <strong>📊 Up to 2000×2000</strong><br>
-                    4 Million Points
-                </div>
-                <div class="capability-card">
-                    <strong>🧩 75×75 Chunks</strong><br>
-                    Smaller for Stability
-                </div>
-                <div class="capability-card">
-                    <strong>🌍 Up to 5 Sq Degrees</strong><br>
-                    Conservative Limits
-                </div>
-                <div class="capability-card">
-                    <strong>⏱️ 45 Minute Max</strong><br>
-                    Safe Processing Time
-                </div>
-            </div>
+            <h1>🏔️ Reliable Terrain Generator</h1>
+            <p>Generate high-quality 3D printable terrain models with stable processing</p>
         </div>
 
         <div class="main-content">
-            <div class="map-section">
+            <div class="map-container">
                 <div id="map"></div>
             </div>
 
-            <div class="controls-section">
-                <div class="api-key-section">
-                    <h3>⚠️ High-Quota API Key Required</h3>
-                    <p>Fixed chunked processing requires a Google Maps API key with elevated quotas for stable operation.</p>
+            <div class="controls">
+                <div class="warning-box">
+                    <strong>⚠️ API Key Required</strong><br>
+                    Enter your Google Maps API key with Elevation API enabled.
                 </div>
 
                 <div class="control-group">
                     <label for="apiKey">Google Maps API Key:</label>
-                    <input type="password" id="apiKey" placeholder="Enter your high-quota API key">
-                    <button class="button" onclick="loadMapWithApiKey()" id="loadMapBtn">Load Map</button>
+                    <input type="password" id="apiKey" placeholder="Enter your API key">
+                    <button class="button" onclick="loadMap()" id="loadBtn">Load Map</button>
+                </div>
+
+                <div class="info-box">
+                    <strong>📋 Instructions:</strong><br>
+                    1. Enter API key and load map<br>
+                    2. Draw rectangle to select area<br>
+                    3. Choose resolution and settings<br>
+                    4. Generate 3D model
+                </div>
+
+                <div class="selection-info" id="selectionInfo">
+                    <strong>📍 Selected Area:</strong><br>
+                    <span id="boundsText"></span><br>
+                    <span id="areaText"></span>
                 </div>
 
                 <div class="control-group">
-                    <div class="instructions">
-                        <strong>🔧 Fixed Processing Workflow:</strong><br>
-                        1. Enter high-quota API key<br>
-                        2. Select area (up to 5 square degrees)<br>
-                        3. Choose resolution (conservative limits)<br>
-                        4. Watch stable chunked processing<br>
-                        5. Download high-quality STL file<br>
-                        <br>
-                        <strong>⚡ Optimizations:</strong> Smaller chunks (75×75), conservative timeouts, better error handling
-                    </div>
-                </div>
-
-                <div class="selection-info" id="selectionInfo" style="display: none;">
-                    <strong>Selected Area:</strong><br>
-                    <span id="boundsText"></span>
-                    <div id="areaInfo"></div>
-                    <div id="chunkingInfo"></div>
-                    <div id="estimatedInfo"></div>
-                </div>
-
-                <div class="control-group">
-                    <label for="resolution">Fixed Resolution (Stable Chunked Processing):</label>
-                    <select id="resolution" onchange="updateEstimates()">
-                        <option value="100">100×100 (10,201 points - Quick Test)</option>
-                        <option value="200">200×200 (40,401 points - Good Quality)</option>
-                        <option value="300" selected>300×300 (90,601 points - High Quality)</option>
-                        <option value="500">500×500 (251,001 points - Very High Quality)</option>
-                        <option value="750">750×750 (563,501 points - Professional)</option>
-                        <option value="1000">1000×1000 (1,002,001 points - Ultra Professional)</option>
-                        <option value="1500">1500×1500 (2,252,501 points - Maximum Recommended)</option>
-                        <option value="2000">2000×2000 (4,004,001 points - Absolute Maximum)</option>
+                    <label for="resolution">Resolution:</label>
+                    <select id="resolution" onchange="updateInfo()">
+                        <option value="50">50×50 (2,601 points - Fast)</option>
+                        <option value="100">100×100 (10,201 points - Good)</option>
+                        <option value="200" selected>200×200 (40,401 points - High Quality)</option>
+                        <option value="300">300×300 (90,601 points - Very High)</option>
+                        <option value="500">500×500 (251,001 points - Professional)</option>
+                        <option value="750">750×750 (563,501 points - Ultra)</option>
+                        <option value="1000">1000×1000 (1M+ points - Maximum)</option>
                     </select>
-                    <div id="resolutionInfo"></div>
                 </div>
 
                 <div class="control-group">
-                    <label for="exaggeration">Terrain Exaggeration:</label>
+                    <label for="exaggeration">Terrain Exaggeration: <span id="exagValue">2.0×</span></label>
                     <div class="range-group">
-                        <input type="range" id="exaggeration" min="0.1" max="10" step="0.1" value="2.0">
-                        <span class="range-value" id="exaggerationValue">2.0×</span>
+                        <input type="range" id="exaggeration" min="0.5" max="5" step="0.1" value="2" 
+                               oninput="document.getElementById('exagValue').textContent = this.value + '×'">
                     </div>
                 </div>
 
                 <div class="control-group">
                     <label for="baseHeight">Base Height (mm):</label>
-                    <input type="number" id="baseHeight" value="6" min="1" max="50">
+                    <input type="number" id="baseHeight" value="5" min="1" max="20">
                 </div>
 
                 <div class="control-group">
                     <label for="modelSize">Model Size (mm):</label>
-                    <input type="number" id="modelSize" value="180" min="50" max="500">
+                    <input type="number" id="modelSize" value="150" min="50" max="300">
                 </div>
 
-                <div class="chunked-progress-container" id="chunkedProgressContainer">
+                <div class="progress-container" id="progressContainer">
                     <div class="progress-header">
-                        <div>
-                            <div class="progress-title" id="progressTitle">Fixed Chunked Processing...</div>
-                            <div class="progress-subtitle" id="progressSubtitle">Stable chunked processing in progress</div>
-                        </div>
-                        <button class="button danger" onclick="cancelRequest()" id="cancelBtn">Cancel</button>
+                        <strong id="progressTitle">Processing...</strong>
+                        <button class="button danger" onclick="cancelRequest()" style="width: auto; padding: 5px 15px;">Cancel</button>
                     </div>
-                    
                     <div class="progress-bar">
                         <div class="progress-fill" id="progressFill"></div>
                     </div>
-                    
-                    <div class="chunk-progress-grid">
-                        <div class="chunk-stat">
-                            <div class="chunk-stat-label">Overall Progress</div>
-                            <div class="chunk-stat-value" id="overallProgress">0%</div>
+                    <div class="progress-stats">
+                        <div class="progress-stat">
+                            <div class="progress-stat-label">Progress</div>
+                            <div class="progress-stat-value" id="progressPercent">0%</div>
                         </div>
-                        <div class="chunk-stat">
-                            <div class="chunk-stat-label">Current Phase</div>
-                            <div class="chunk-stat-value" id="currentPhase">Initializing</div>
+                        <div class="progress-stat">
+                            <div class="progress-stat-label">Phase</div>
+                            <div class="progress-stat-value" id="progressPhase">Starting</div>
                         </div>
-                        <div class="chunk-stat">
-                            <div class="chunk-stat-label">Chunks Complete</div>
-                            <div class="chunk-stat-value" id="chunksComplete">0/0</div>
+                        <div class="progress-stat">
+                            <div class="progress-stat-label">Time</div>
+                            <div class="progress-stat-value" id="progressTime">0:00</div>
                         </div>
-                        <div class="chunk-stat">
-                            <div class="chunk-stat-label">Current Chunk</div>
-                            <div class="chunk-stat-value" id="currentChunk">--</div>
-                        </div>
-                        <div class="chunk-stat">
-                            <div class="chunk-stat-label">Elapsed Time</div>
-                            <div class="chunk-stat-value" id="elapsedTime">0:00</div>
-                        </div>
-                        <div class="chunk-stat">
-                            <div class="chunk-stat-label">Est. Remaining</div>
-                            <div class="chunk-stat-value" id="estimatedRemaining">--</div>
-                        </div>
-                    </div>
-
-                    <div class="chunk-grid-visual" id="chunkGridVisual" style="display: none;">
-                        <div style="font-size: 0.9rem; font-weight: 600; margin-bottom: 10px;">Chunk Processing Grid</div>
-                        <div class="chunk-grid" id="chunkGrid"></div>
-                        <div style="font-size: 0.8rem; color: #666; margin-top: 10px;">
-                            <span style="color: #28a745;">■</span> Completed &nbsp;
-                            <span style="color: #ffc107;">■</span> Processing &nbsp;
-                            <span style="color: #f8f9fa;">□</span> Pending
+                        <div class="progress-stat">
+                            <div class="progress-stat-label">Quality</div>
+                            <div class="progress-stat-value" id="progressQuality">--</div>
                         </div>
                     </div>
                 </div>
 
                 <button class="button" id="generateBtn" onclick="generateModel()" disabled>
-                    🔧 Generate Fixed High-Resolution Model
+                    🚀 Generate 3D Model
                 </button>
 
                 <div id="status"></div>
@@ -520,35 +362,23 @@
     </div>
 
     <script>
-        let map;
-        let rectangle;
-        let selectedBounds = null;
-        let drawingManager;
+        let map, rectangle, selectedBounds = null;
         let mapLoaded = false;
         let currentRequestId = null;
         let progressInterval = null;
         let startTime = null;
-        let chunkGrid = null;
 
-        function showStatus(message, type = 'info', details = null) {
+        function showStatus(message, type = 'info') {
             const status = document.getElementById('status');
             status.className = `status ${type}`;
-            
-            let content = message;
-            if (details) {
-                content += `<div style="margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 4px; font-family: monospace; font-size: 0.8rem;">${details}</div>`;
-            }
-            
-            status.innerHTML = content;
-            status.style.display = 'block';
+            status.textContent = message;
         }
 
-        function showChunkedProgress(show, details = {}) {
-            const container = document.getElementById('chunkedProgressContainer');
-            
+        function showProgress(show, details = {}) {
+            const container = document.getElementById('progressContainer');
             if (show) {
                 container.classList.add('active');
-                updateChunkedProgressDisplay(details);
+                updateProgress(details);
             } else {
                 container.classList.remove('active');
                 if (progressInterval) {
@@ -558,108 +388,26 @@
             }
         }
 
-        function updateChunkedProgressDisplay(details) {
-            // Update overall progress
-            const progress = details.progress || 0;
-            document.getElementById('progressFill').style.width = progress + '%';
-            document.getElementById('overallProgress').textContent = progress + '%';
+        function updateProgress(details) {
+            document.getElementById('progressFill').style.width = (details.progress || 0) + '%';
+            document.getElementById('progressPercent').textContent = (details.progress || 0) + '%';
+            document.getElementById('progressPhase').textContent = details.phase || 'Processing';
             
-            // Update phase
-            document.getElementById('currentPhase').textContent = details.phase || 'Processing';
-            
-            // Update chunk information
-            if (details.totalChunks) {
-                document.getElementById('chunksComplete').textContent = `${details.completedChunks || 0}/${details.totalChunks}`;
-                document.getElementById('currentChunk').textContent = details.chunkId || '--';
-            }
-            
-            // Update elapsed time
             if (startTime) {
                 const elapsed = Math.floor((Date.now() - startTime) / 1000);
-                const hours = Math.floor(elapsed / 3600);
-                const minutes = Math.floor((elapsed % 3600) / 60);
+                const minutes = Math.floor(elapsed / 60);
                 const seconds = elapsed % 60;
-                
-                let timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-                if (hours > 0) {
-                    timeStr = `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                }
-                document.getElementById('elapsedTime').textContent = timeStr;
-                
-                // Estimate remaining time
-                if (details.totalChunks && details.completedChunks && details.completedChunks > 0) {
-                    const avgTimePerChunk = elapsed / details.completedChunks;
-                    const remainingChunks = details.totalChunks - details.completedChunks;
-                    const estimatedRemaining = Math.ceil(avgTimePerChunk * remainingChunks);
-                    
-                    const remMinutes = Math.floor(estimatedRemaining / 60);
-                    const remSeconds = estimatedRemaining % 60;
-                    document.getElementById('estimatedRemaining').textContent = `~${remMinutes}:${remSeconds.toString().padStart(2, '0')}`;
-                } else {
-                    document.getElementById('estimatedRemaining').textContent = '--';
-                }
+                document.getElementById('progressTime').textContent = 
+                    `${minutes}:${seconds.toString().padStart(2, '0')}`;
             }
             
-            // Update chunk grid visual
-            updateChunkGridVisual(details);
-        }
-
-        function updateChunkGridVisual(details) {
-            if (!chunkGrid && details.chunkGrid) {
-                createChunkGridVisual(details.chunkGrid);
-            }
-            
-            if (details.chunkId && chunkGrid) {
-                // Update individual chunk status
-                const [chunkX, chunkY] = details.chunkId.split('_').map(Number);
-                const chunkIndex = chunkY * chunkGrid.chunksX + chunkX;
-                const chunkCell = document.querySelector(`[data-chunk-index="${chunkIndex}"]`);
-                
-                if (chunkCell) {
-                    chunkCell.classList.remove('processing');
-                    chunkCell.classList.add('completed');
-                }
-                
-                // Mark next chunk as processing
-                if (details.completedChunks < details.totalChunks) {
-                    const nextChunkCell = document.querySelector(`[data-chunk-index="${details.completedChunks}"]`);
-                    if (nextChunkCell) {
-                        nextChunkCell.classList.add('processing');
-                    }
-                }
+            if (details.dataQuality) {
+                document.getElementById('progressQuality').textContent = details.dataQuality + '%';
             }
         }
 
-        function createChunkGridVisual(chunkGridInfo) {
-            const visual = document.getElementById('chunkGridVisual');
-            const grid = document.getElementById('chunkGrid');
-            
-            chunkGrid = chunkGridInfo;
-            
-            // Set up grid layout - limit visual size for large grids
-            const maxVisualSize = 20;
-            const visualChunksX = Math.min(chunkGridInfo.chunksX, maxVisualSize);
-            const visualChunksY = Math.min(chunkGridInfo.chunksY, maxVisualSize);
-            
-            grid.style.gridTemplateColumns = `repeat(${visualChunksX}, 16px)`;
-            grid.innerHTML = '';
-            
-            // Create chunk cells (show subset if too many)
-            const totalVisualChunks = visualChunksX * visualChunksY;
-            for (let i = 0; i < totalVisualChunks; i++) {
-                const cell = document.createElement('div');
-                cell.className = 'chunk-cell';
-                cell.dataset.chunkIndex = i;
-                cell.title = `Chunk ${i}`;
-                grid.appendChild(cell);
-            }
-            
-            visual.style.display = 'block';
-        }
-
-        function loadMapWithApiKey() {
+        function loadMap() {
             const apiKey = document.getElementById('apiKey').value.trim();
-            
             if (!apiKey) {
                 showStatus('Please enter your Google Maps API key.', 'error');
                 return;
@@ -667,18 +415,9 @@
 
             showStatus('Loading Google Maps...', 'info');
             
-            const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
-            if (existingScript) {
-                existingScript.remove();
-            }
-            
             const script = document.createElement('script');
             script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=drawing&callback=initMap`;
-            script.async = true;
-            script.defer = true;
-            script.onerror = function() {
-                showStatus('Failed to load Google Maps API. Check your API key and ensure high quota limits.', 'error');
-            };
+            script.onerror = () => showStatus('Failed to load Google Maps. Check your API key.', 'error');
             
             window.initMap = initMap;
             document.head.appendChild(script);
@@ -686,16 +425,16 @@
 
         function initMap() {
             try {
-                showStatus('Map loaded! Draw a rectangle to select terrain area for stable chunked processing.', 'success');
+                showStatus('Map loaded! Draw a rectangle to select terrain area.', 'success');
                 mapLoaded = true;
                 
                 map = new google.maps.Map(document.getElementById('map'), {
-                    zoom: 8,
-                    center: { lat: 39.8283, lng: -98.5795 }, // Center of USA
+                    zoom: 10,
+                    center: { lat: 40.7128, lng: -74.0060 },
                     mapTypeId: 'terrain'
                 });
 
-                drawingManager = new google.maps.drawing.DrawingManager({
+                const drawingManager = new google.maps.drawing.DrawingManager({
                     drawingMode: google.maps.drawing.OverlayType.RECTANGLE,
                     drawingControl: true,
                     drawingControlOptions: {
@@ -705,21 +444,16 @@
                     rectangleOptions: {
                         fillColor: '#667eea',
                         fillOpacity: 0.3,
-                        strokeWeight: 3,
+                        strokeWeight: 2,
                         strokeColor: '#667eea',
-                        clickable: false,
-                        editable: true,
-                        zIndex: 1
+                        editable: true
                     }
                 });
 
                 drawingManager.setMap(map);
 
                 drawingManager.addListener('rectanglecomplete', function(rect) {
-                    if (rectangle) {
-                        rectangle.setMap(null);
-                    }
-                    
+                    if (rectangle) rectangle.setMap(null);
                     rectangle = rect;
                     selectedBounds = rect.getBounds();
                     updateSelectionInfo();
@@ -731,226 +465,45 @@
                     });
                 });
 
-                document.getElementById('loadMapBtn').style.display = 'none';
+                document.getElementById('loadBtn').style.display = 'none';
                 document.getElementById('apiKey').style.display = 'none';
                 document.querySelector('label[for="apiKey"]').style.display = 'none';
-                document.querySelector('.api-key-section').style.display = 'none';
+                document.querySelector('.warning-box').style.display = 'none';
 
             } catch (error) {
                 showStatus('Error initializing map: ' + error.message, 'error');
             }
         }
 
-        function calculateArea(bounds) {
-            const latDiff = Math.abs(bounds.getNorthEast().lat() - bounds.getSouthWest().lat());
-            const lngDiff = Math.abs(bounds.getNorthEast().lng() - bounds.getSouthWest().lng());
-            return latDiff * lngDiff;
-        }
-
-        function calculateChunkGrid(resolution) {
-            const maxChunkSize = 75; // Fixed chunk size
-            if (resolution <= maxChunkSize) {
-                return { chunksX: 1, chunksY: 1, chunkSizeX: resolution, chunkSizeY: resolution };
-            }
-            
-            const chunksX = Math.ceil(resolution / maxChunkSize);
-            const chunksY = Math.ceil(resolution / maxChunkSize);
-            const chunkSizeX = Math.min(maxChunkSize, Math.ceil(resolution / chunksX));
-            const chunkSizeY = Math.min(maxChunkSize, Math.ceil(resolution / chunksY));
-            
-            return { chunksX, chunksY, chunkSizeX, chunkSizeY };
-        }
-
-        function estimateProcessingTime(resolution, area) {
-            const chunkInfo = calculateChunkGrid(resolution);
-            const totalChunks = chunkInfo.chunksX * chunkInfo.chunksY;
-            
-            // Conservative estimate: 2 minutes per chunk
-            const totalMinutes = totalChunks * 2;
-            
-            if (totalMinutes > 60) {
-                return `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`;
-            } else {
-                return `${totalMinutes}m`;
-            }
-        }
-
-        function updateEstimates() {
-            const resolution = parseInt(document.getElementById('resolution').value);
-            const points = (resolution + 1) * (resolution + 1);
-            const chunkInfo = calculateChunkGrid(resolution);
-            const totalChunks = chunkInfo.chunksX * chunkInfo.chunksY;
-            const infoEl = document.getElementById('resolutionInfo');
-            
-            const area = selectedBounds ? calculateArea(selectedBounds) : 1;
-            const estimatedTime = estimateProcessingTime(resolution, area);
-            
-            // Check if request is feasible
-            const estimatedMinutes = totalChunks * 2;
-            let feasibilityNote = '';
-            if (estimatedMinutes > 40) {
-                feasibilityNote = '<br><strong style="color: #c62828;">⚠️ May exceed 45-minute limit</strong>';
-            }
-            
-            infoEl.innerHTML = `
-                <div class="resolution-info">
-                    📊 <strong>${points.toLocaleString()} elevation points</strong><br>
-                    🧩 <strong>${totalChunks} chunks</strong> (${chunkInfo.chunksX}×${chunkInfo.chunksY} grid)<br>
-                    📦 <strong>${chunkInfo.chunkSizeX}×${chunkInfo.chunkSizeY}</strong> points per chunk<br>
-                    ⏱️ <strong>Estimated time: ~${estimatedTime}</strong><br>
-                    🌍 Max area: 5 square degrees${feasibilityNote}
-                </div>
-            `;
-            
-            if (selectedBounds) {
-                updateSelectionInfo();
-            }
-        }
-
         function updateSelectionInfo() {
             const info = document.getElementById('selectionInfo');
-            const boundsText = document.getElementById('boundsText');
-            const areaInfo = document.getElementById('areaInfo');
-            const chunkingInfo = document.getElementById('chunkingInfo');
-            const estimatedInfo = document.getElementById('estimatedInfo');
-            
             if (selectedBounds) {
                 const ne = selectedBounds.getNorthEast();
                 const sw = selectedBounds.getSouthWest();
-                const area = calculateArea(selectedBounds);
-                const resolution = parseInt(document.getElementById('resolution').value);
-                const points = (resolution + 1) * (resolution + 1);
+                const area = Math.abs(ne.lat() - sw.lat()) * Math.abs(ne.lng() - sw.lng());
                 
-                boundsText.innerHTML = `
-                    North: ${ne.lat().toFixed(6)} | South: ${sw.lat().toFixed(6)}<br>
-                    East: ${ne.lng().toFixed(6)} | West: ${sw.lng().toFixed(6)}
-                `;
+                document.getElementById('boundsText').innerHTML = 
+                    `N: ${ne.lat().toFixed(4)}, S: ${sw.lat().toFixed(4)}<br>` +
+                    `E: ${ne.lng().toFixed(4)}, W: ${sw.lng().toFixed(4)}`;
                 
-                let areaClass, areaText;
-                const maxArea = 5.0; // Conservative limit
-                if (area > maxArea) {
-                    areaClass = 'warning-info';
-                    areaText = `⚠️ Area: ${area.toFixed(6)} sq° (TOO LARGE - max 5 sq° for stability)`;
-                } else if (area > 2.5) {
-                    areaClass = 'warning-info';
-                    areaText = `⚠️ Area: ${area.toFixed(6)} sq° (Large - expect longer processing time)`;
-                } else if (area > 1.0) {
-                    areaClass = 'warning-info';
-                    areaText = `⚠️ Area: ${area.toFixed(6)} sq° (Moderate - good for testing)`;
-                } else {
-                    areaClass = 'area-info';
-                    areaText = `✅ Area: ${area.toFixed(6)} sq° (Good size for stable processing)`;
-                }
+                document.getElementById('areaText').innerHTML = 
+                    `Area: ${area.toFixed(6)} sq° ${area > 1 ? '(Large)' : '(Good size)'}`;
                 
-                const chunkInfo = calculateChunkGrid(resolution);
-                const totalChunks = chunkInfo.chunksX * chunkInfo.chunksY;
-                const estimatedTime = estimateProcessingTime(resolution, area);
-                
-                chunkingInfo.innerHTML = `
-                    <div class="chunked-info">
-                        🧩 <strong>Fixed Chunked Processing:</strong> ${totalChunks} chunks (${chunkInfo.chunksX}×${chunkInfo.chunksY})<br>
-                        📦 Each chunk: ${chunkInfo.chunkSizeX}×${chunkInfo.chunkSizeY} points max<br>
-                        🔧 Conservative processing with timeout protection
-                    </div>
-                `;
-                
-                estimatedInfo.innerHTML = `
-                    <div class="estimated-time">
-                        🎯 ${points.toLocaleString()} total points | ⏱️ ~${estimatedTime} | 🔧 Fixed processing
-                    </div>
-                `;
-                
-                areaInfo.innerHTML = `<div class="${areaClass}">${areaText}</div>`;
                 info.style.display = 'block';
             } else {
                 info.style.display = 'none';
             }
         }
 
+        function updateInfo() {
+            const resolution = parseInt(document.getElementById('resolution').value);
+            const points = (resolution + 1) * (resolution + 1);
+            // Update any resolution-specific info here
+        }
+
         function checkGenerateButton() {
-            const generateBtn = document.getElementById('generateBtn');
-            let canGenerate = mapLoaded && selectedBounds && !currentRequestId;
-            
-            if (canGenerate && selectedBounds) {
-                const area = calculateArea(selectedBounds);
-                const maxArea = 5.0;
-                
-                if (area > maxArea) {
-                    canGenerate = false;
-                }
-                
-                // Check if estimated time is too long
-                const resolution = parseInt(document.getElementById('resolution').value);
-                const chunkInfo = calculateChunkGrid(resolution);
-                const totalChunks = chunkInfo.chunksX * chunkInfo.chunksY;
-                const estimatedMinutes = totalChunks * 2;
-                
-                if (estimatedMinutes > 40) {
-                    canGenerate = false;
-                }
-            }
-            
-            generateBtn.disabled = !canGenerate;
-        }
-
-        // Event listeners
-        document.getElementById('exaggeration').addEventListener('input', function() {
-            document.getElementById('exaggerationValue').textContent = parseFloat(this.value).toFixed(1) + '×';
-        });
-
-        document.getElementById('resolution').addEventListener('change', function() {
-            updateEstimates();
-            checkGenerateButton();
-        });
-
-        document.getElementById('apiKey').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                loadMapWithApiKey();
-            }
-        });
-
-        async function pollChunkedProgress(requestId) {
-            try {
-                const response = await fetch(`/api/progress/${requestId}`);
-                if (response.ok) {
-                    const progress = await response.json();
-                    updateChunkedProgressDisplay(progress);
-                    
-                    if (progress.status === 'completed' || progress.status === 'error') {
-                        clearInterval(progressInterval);
-                        progressInterval = null;
-                        return false;
-                    }
-                } else {
-                    console.warn('Progress polling failed:', response.status);
-                }
-            } catch (error) {
-                console.warn('Progress polling error:', error);
-            }
-            return true;
-        }
-
-        async function parseErrorResponse(response) {
-            try {
-                const text = await response.text();
-                
-                if (text.startsWith('{') || text.startsWith('[')) {
-                    const json = JSON.parse(text);
-                    return json.error || json.message || 'Unknown error';
-                } else {
-                    if (text.includes('Error 502') || text.includes('Bad Gateway')) {
-                        return 'Server temporarily unavailable (502). Try reducing resolution or area size.';
-                    } else if (text.includes('Error 504') || text.includes('Gateway Timeout')) {
-                        return 'Request timeout (504). Processing exceeded server limits.';
-                    } else if (text.includes('Error 500')) {
-                        return 'Internal server error (500). Server may be overloaded.';
-                    } else {
-                        return `Server error: ${response.status} ${response.statusText}`;
-                    }
-                }
-            } catch (e) {
-                return `Network error: ${response.status} ${response.statusText}`;
-            }
+            const btn = document.getElementById('generateBtn');
+            btn.disabled = !(mapLoaded && selectedBounds && !currentRequestId);
         }
 
         async function generateModel() {
@@ -960,17 +513,13 @@
             }
 
             const generateBtn = document.getElementById('generateBtn');
-            const originalText = generateBtn.textContent;
             generateBtn.disabled = true;
-            generateBtn.textContent = '🔧 Initializing...';
-            
+            generateBtn.textContent = 'Processing...';
             startTime = Date.now();
-            currentRequestId = null;
-            chunkGrid = null;
 
             try {
-                showStatus('Initializing fixed chunked processing...', 'info');
-                showChunkedProgress(true, { progress: 0, phase: 'Initializing fixed processing' });
+                showStatus('Starting terrain generation...', 'info');
+                showProgress(true, { progress: 5, phase: 'Initializing' });
 
                 const ne = selectedBounds.getNorthEast();
                 const sw = selectedBounds.getSouthWest();
@@ -984,140 +533,80 @@
 
                 const resolution = parseInt(document.getElementById('resolution').value);
                 const apiKey = document.getElementById('apiKey').value;
-                const points = (resolution + 1) * (resolution + 1);
-                const chunkInfo = calculateChunkGrid(resolution);
-                
-                showChunkedProgress(true, { 
-                    progress: 5, 
-                    phase: 'Starting stable chunked elevation processing',
-                    totalPoints: points,
-                    chunkGrid: chunkInfo
-                });
+
+                showProgress(true, { progress: 10, phase: 'Fetching elevation data' });
 
                 const response = await fetch('/api/elevation', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        bounds,
-                        resolution,
-                        apiKey
-                    })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bounds, resolution, apiKey })
                 });
 
                 if (!response.ok) {
-                    const errorMessage = await parseErrorResponse(response);
-                    throw new Error(errorMessage);
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to fetch elevation data');
                 }
 
                 const data = await response.json();
-                currentRequestId = data.metadata.requestId;
-                
-                // Start progress polling
-                progressInterval = setInterval(() => {
-                    pollChunkedProgress(currentRequestId);
-                }, 3000); // Poll every 3 seconds
+                currentRequestId = data.metadata?.requestId;
 
-                showChunkedProgress(true, { 
-                    progress: 90, 
-                    phase: 'Creating high-resolution 3D model',
-                    dataQuality: data.metadata.dataQuality 
+                showProgress(true, { 
+                    progress: 85, 
+                    phase: 'Creating 3D model',
+                    dataQuality: data.metadata?.dataQuality 
                 });
-                
+
                 const stlContent = generateSTL(data);
                 
-                showChunkedProgress(true, { progress: 95, phase: 'Preparing file download' });
+                showProgress(true, { progress: 95, phase: 'Preparing download' });
                 
                 downloadSTL(stlContent, resolution);
                 
-                showChunkedProgress(true, { progress: 100, phase: 'Fixed processing complete!' });
-                
-                const processingTime = data.metadata.processingTime / 1000;
-                const minutes = Math.floor(processingTime / 60);
-                const seconds = Math.floor(processingTime % 60);
+                showProgress(true, { progress: 100, phase: 'Complete!' });
                 
                 showStatus(
-                    `🎉 Fixed high-resolution model generated successfully! ${data.metadata.points.toLocaleString()} points processed via ${data.metadata.chunkInfo.totalChunks} chunks in ${minutes}m ${seconds}s (${data.metadata.dataQuality}% quality)`, 
+                    `✅ Model generated! ${data.metadata?.points || 'Unknown'} points processed.`,
                     'success'
                 );
-                
-                setTimeout(() => showChunkedProgress(false), 5000);
+
+                setTimeout(() => showProgress(false), 3000);
 
             } catch (error) {
-                console.error('Generation error:', error);
-                showChunkedProgress(false);
-                
-                let errorMessage = error.message;
-                let statusType = 'error';
-                let suggestions = '';
-                
-                if (error.message.includes('502') || error.message.includes('Bad Gateway')) {
-                    errorMessage = 'Server temporarily unavailable. Processing may have exceeded limits.';
-                    suggestions = 'Try: Resolution ≤1000×1000, area ≤2 sq°, or wait and retry.';
-                    statusType = 'warning';
-                } else if (error.message.includes('504') || error.message.includes('timeout')) {
-                    errorMessage = 'Request timed out. Processing exceeded server capacity.';
-                    suggestions = 'Try: Resolution ≤750×750, area ≤1 sq°, or wait for server capacity.';
-                    statusType = 'warning';
-                } else if (error.message.includes('Rate limit')) {
-                    errorMessage = 'Rate limit: Maximum 2 requests per minute allowed.';
-                    suggestions = 'Wait 1 minute before trying again.';
-                    statusType = 'warning';
-                } else if (error.message.includes('API key') || error.message.includes('quota')) {
-                    errorMessage = 'API key invalid or quota exceeded.';
-                    suggestions = 'Check: API key validity, quota limits (50k+ requests/day), billing status.';
-                } else if (error.message.includes('too large') || error.message.includes('exceeded safe limits')) {
-                    errorMessage = 'Request exceeds safe processing limits.';
-                    suggestions = 'Try: Resolution ≤1500×1500, area ≤2 sq°.';
-                    statusType = 'warning';
-                } else if (error.message.includes('Chunk processing failed')) {
-                    errorMessage = 'Individual chunk processing failed.';
-                    suggestions = 'Try: Lower resolution, smaller area, or check API quota.';
-                    statusType = 'warning';
-                }
-                
-                showStatus(`Error: ${errorMessage}`, statusType, suggestions);
+                console.error('Error:', error);
+                showProgress(false);
+                showStatus('Error: ' + error.message, 'error');
             } finally {
                 currentRequestId = null;
                 generateBtn.disabled = false;
-                generateBtn.textContent = originalText;
+                generateBtn.textContent = '🚀 Generate 3D Model';
                 checkGenerateButton();
             }
         }
 
-        async function cancelRequest() {
+        function cancelRequest() {
             if (currentRequestId) {
-                try {
-                    await fetch(`/api/cancel/${currentRequestId}`, { method: 'POST' });
-                    showStatus('Cancellation request sent. Fixed processing may take a moment to stop.', 'warning');
-                } catch (e) {
-                    console.warn('Cancel request failed:', e);
-                }
-                
                 currentRequestId = null;
-                showChunkedProgress(false);
-                showStatus('Fixed processing request cancelled by user.', 'warning');
+                showProgress(false);
+                showStatus('Request cancelled.', 'warning');
                 checkGenerateButton();
             }
         }
 
         function generateSTL(data) {
-            const { elevationData, bounds, resolution } = data;
+            const { elevationData, resolution } = data;
             const exaggeration = parseFloat(document.getElementById('exaggeration').value);
             const baseHeight = parseFloat(document.getElementById('baseHeight').value);
             const modelSize = parseFloat(document.getElementById('modelSize').value);
 
+            // Find min/max elevations
             let minElevation = Math.min(...elevationData.map(p => p.elevation));
             let maxElevation = Math.max(...elevationData.map(p => p.elevation));
             
-            if (minElevation === maxElevation) {
-                maxElevation = minElevation + 1;
-            }
+            if (minElevation === maxElevation) maxElevation = minElevation + 1;
 
             const elevationRange = maxElevation - minElevation;
             
-            // Create high-resolution elevation grid
+            // Create elevation grid
             const grid = [];
             for (let i = 0; i <= resolution; i++) {
                 grid[i] = [];
@@ -1125,7 +614,8 @@
                     const index = i * (resolution + 1) + j;
                     if (index < elevationData.length) {
                         const elevation = elevationData[index].elevation;
-                        const normalizedHeight = ((elevation - minElevation) / elevationRange) * modelSize * 0.4 * exaggeration;
+                        const normalizedHeight = ((elevation - minElevation) / elevationRange) * 
+                                               modelSize * 0.3 * exaggeration;
                         grid[i][j] = normalizedHeight + baseHeight;
                     } else {
                         grid[i][j] = baseHeight;
@@ -1133,37 +623,34 @@
                 }
             }
 
-            // Generate high-precision STL
-            let stl = 'solid fixed_high_resolution_terrain\n';
+            // Generate STL
+            let stl = 'solid terrain\n';
             const step = modelSize / resolution;
             
-            // Surface triangles with high precision
+            // Surface triangles
             for (let i = 0; i < resolution; i++) {
                 for (let j = 0; j < resolution; j++) {
-                    const x1 = i * step;
-                    const y1 = j * step;
-                    const x2 = (i + 1) * step;
-                    const y2 = (j + 1) * step;
+                    const x1 = i * step, y1 = j * step;
+                    const x2 = (i + 1) * step, y2 = (j + 1) * step;
                     
-                    const z1 = grid[i][j];
-                    const z2 = grid[i + 1][j];
-                    const z3 = grid[i][j + 1];
-                    const z4 = grid[i + 1][j + 1];
+                    const z1 = grid[i][j], z2 = grid[i + 1][j];
+                    const z3 = grid[i][j + 1], z4 = grid[i + 1][j + 1];
                     
                     stl += generateTriangle([x1, y1, z1], [x2, y1, z2], [x1, y2, z3]);
                     stl += generateTriangle([x2, y1, z2], [x2, y2, z4], [x1, y2, z3]);
                 }
             }
             
-            // Base and walls (simplified for high resolution)
+            // Base
             stl += generateTriangle([0, 0, 0], [modelSize, 0, 0], [0, modelSize, 0]);
             stl += generateTriangle([modelSize, 0, 0], [modelSize, modelSize, 0], [0, modelSize, 0]);
             
-            stl += 'endsolid fixed_high_resolution_terrain\n';
+            stl += 'endsolid terrain\n';
             return stl;
         }
 
         function generateTriangle(v1, v2, v3) {
+            // Calculate normal
             const u = [v2[0] - v1[0], v2[1] - v1[1], v2[2] - v1[2]];
             const v = [v3[0] - v1[0], v3[1] - v1[1], v3[2] - v1[2]];
             
@@ -1194,7 +681,7 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `fixed_high_res_terrain_${resolution}x${resolution}_${Date.now()}.stl`;
+            a.download = `terrain_${resolution}x${resolution}_${Date.now()}.stl`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -1202,69 +689,8 @@
         }
 
         // Initialize
-        showStatus('Enter your high-quota Google Maps API key to begin fixed high-resolution terrain generation.', 'info');
-        updateEstimates();
+        showStatus('Enter your Google Maps API key to get started.', 'info');
+        updateInfo();
     </script>
 </body>
 </html>
-                <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fixed High-Resolution Chunked Terrain Generator</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            color: #333;
-        }
-
-        .container {
-            max-width: 1600px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-            color: white;
-        }
-
-        .header h1 {
-            font-size: 2.8rem;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        }
-
-        .capabilities-banner {
-            background: rgba(255,255,255,0.15);
-            padding: 20px;
-            border-radius: 12px;
-            margin-bottom: 25px;
-            text-align: center;
-            color: white;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.2);
-        }
-
-        .capabilities-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-top: 15px;
-        }
-
-        .capability-card {
-            background: rgba(255,255,255,0.1);
-            padding: 15px;
-            border-radius: 8px;
-            text-align
