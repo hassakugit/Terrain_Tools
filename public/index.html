@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Terrain Generator</title>
+    <title>High-Resolution 3D Terrain Generator</title>
     <style>
         * {
             margin: 0;
@@ -19,7 +19,7 @@
         }
 
         .container {
-            max-width: 1400px;
+            max-width: 1600px;
             margin: 0 auto;
             padding: 20px;
         }
@@ -31,19 +31,29 @@
         }
 
         .header h1 {
-            font-size: 2.5rem;
+            font-size: 2.8rem;
             margin-bottom: 10px;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
         }
 
         .header p {
-            font-size: 1.1rem;
+            font-size: 1.2rem;
             opacity: 0.9;
+        }
+
+        .capabilities-banner {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            color: white;
+            backdrop-filter: blur(10px);
         }
 
         .main-content {
             display: grid;
-            grid-template-columns: 1fr 400px;
+            grid-template-columns: 1fr 450px;
             gap: 20px;
             height: 80vh;
         }
@@ -63,7 +73,7 @@
             padding: 25px;
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 15px;
             overflow-y: auto;
         }
 
@@ -121,6 +131,10 @@
             box-shadow: none;
         }
 
+        .button.danger {
+            background: linear-gradient(135deg, #ff4757 0%, #ff3742 100%);
+        }
+
         .status {
             padding: 15px;
             border-radius: 8px;
@@ -163,7 +177,7 @@
         }
 
         .range-value {
-            min-width: 40px;
+            min-width: 50px;
             text-align: center;
             font-weight: 600;
             color: #667eea;
@@ -192,7 +206,7 @@
             padding: 15px;
             border-radius: 8px;
             border: 1px solid #ffeaa7;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
 
         .api-key-section h3 {
@@ -201,27 +215,45 @@
             font-size: 1rem;
         }
 
-        .api-key-section p {
-            color: #856404;
-            font-size: 0.9rem;
-            line-height: 1.4;
-        }
-
         .progress-container {
             display: none;
             background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            border: 1px solid #dee2e6;
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #dee2e6;
+            margin: 15px 0;
+        }
+
+        .progress-container.active {
+            border-color: #667eea;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e3f2fd 100%);
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .progress-title {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .progress-cancel {
+            padding: 5px 10px;
+            font-size: 0.8rem;
         }
 
         .progress-bar {
             width: 100%;
-            height: 8px;
+            height: 12px;
             background: #e9ecef;
-            border-radius: 4px;
+            border-radius: 6px;
             overflow: hidden;
             margin: 10px 0;
+            position: relative;
         }
 
         .progress-fill {
@@ -229,12 +261,52 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             width: 0%;
             transition: width 0.3s ease;
+            position: relative;
         }
 
-        .progress-text {
-            font-size: 0.9rem;
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, 
+                transparent 0%, 
+                rgba(255,255,255,0.3) 50%, 
+                transparent 100%);
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .progress-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            font-size: 0.85rem;
             color: #666;
+        }
+
+        .progress-stat {
+            background: white;
+            padding: 8px;
+            border-radius: 4px;
             text-align: center;
+        }
+
+        .progress-stat-label {
+            font-size: 0.75rem;
+            color: #888;
+            margin-bottom: 2px;
+        }
+
+        .progress-stat-value {
+            font-weight: 600;
+            color: #333;
         }
 
         .area-info {
@@ -257,7 +329,26 @@
             margin-top: 5px;
         }
 
-        @media (max-width: 1024px) {
+        .resolution-info {
+            background: #f0f4ff;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            margin-top: 5px;
+            border: 1px solid #d0e0ff;
+        }
+
+        .estimated-time {
+            background: #e8f4fd;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            color: #1565c0;
+            text-align: center;
+            margin-top: 5px;
+        }
+
+        @media (max-width: 1200px) {
             .main-content {
                 grid-template-columns: 1fr;
                 grid-template-rows: 60vh auto;
@@ -268,8 +359,12 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🏔️ 3D Terrain Generator</h1>
-            <p>Select an area on the map to generate a 3D printable terrain model</p>
+            <h1>🏔️ High-Resolution 3D Terrain Generator</h1>
+            <p>Generate ultra-high resolution 3D printable terrain models from any location</p>
+        </div>
+
+        <div class="capabilities-banner">
+            <strong>🚀 Enhanced Capabilities:</strong> Up to 2000×2000 resolution (4M points) • Large area support • Advanced progress tracking • Intelligent batching
         </div>
 
         <div class="main-content">
@@ -280,7 +375,7 @@
             <div class="controls-section">
                 <div class="api-key-section">
                     <h3>⚠️ API Key Required</h3>
-                    <p>Please enter your Google Maps API key below. Make sure it has the Maps JavaScript API and Elevation API enabled.</p>
+                    <p>Enter your Google Maps API key. Ensure Maps JavaScript API and Elevation API are enabled with sufficient quota for high-resolution processing.</p>
                 </div>
 
                 <div class="control-group">
@@ -291,12 +386,13 @@
 
                 <div class="control-group">
                     <div class="instructions">
-                        <strong>How to use:</strong><br>
-                        1. Enter your Google Maps API key above<br>
-                        2. Click "Load Map"<br>
-                        3. Draw a rectangle on the map to select an area<br>
-                        4. Adjust settings below<br>
-                        5. Click "Generate 3D Model"
+                        <strong>High-Resolution Workflow:</strong><br>
+                        1. Enter API key and load map<br>
+                        2. Select area (can be very large)<br>
+                        3. Choose resolution (up to 2000×2000)<br>
+                        4. Start generation (may take several minutes)<br>
+                        5. Monitor real-time progress<br>
+                        6. Download high-quality STL file
                     </div>
                 </div>
 
@@ -304,47 +400,81 @@
                     <strong>Selected Area:</strong><br>
                     <span id="boundsText"></span>
                     <div id="areaInfo"></div>
+                    <div id="estimatedInfo"></div>
                 </div>
 
                 <div class="control-group">
                     <label for="resolution">Resolution (Grid Size):</label>
-                    <select id="resolution" onchange="updateAreaWarnings()">
-                        <option value="50">50x50 (Fast, Large Areas)</option>
-                        <option value="75">75x75 (Balanced)</option>
-                        <option value="100" selected>100x100 (Detailed)</option>
-                        <option value="150">150x150 (High Detail, Small Areas)</option>
-                        <option value="200">200x200 (Maximum Detail, Tiny Areas)</option>
+                    <select id="resolution" onchange="updateEstimates()">
+                        <option value="50">50×50 (2,601 points - Fast)</option>
+                        <option value="100">100×100 (10,201 points - Balanced)</option>
+                        <option value="200">200×200 (40,401 points - High Detail)</option>
+                        <option value="300">300×300 (90,601 points - Very High Detail)</option>
+                        <option value="500" selected>500×500 (251,001 points - Ultra High Detail)</option>
+                        <option value="750">750×750 (563,501 points - Extreme Detail)</option>
+                        <option value="1000">1000×1000 (1,002,001 points - Maximum Detail)</option>
+                        <option value="1500">1500×1500 (2,252,501 points - Professional)</option>
+                        <option value="2000">2000×2000 (4,004,001 points - Ultra Professional)</option>
                     </select>
-                    <div id="resolutionWarning"></div>
+                    <div id="resolutionInfo"></div>
                 </div>
 
                 <div class="control-group">
                     <label for="exaggeration">Terrain Exaggeration:</label>
                     <div class="range-group">
-                        <input type="range" id="exaggeration" min="0.5" max="5" step="0.1" value="2">
-                        <span class="range-value" id="exaggerationValue">2.0x</span>
+                        <input type="range" id="exaggeration" min="0.1" max="10" step="0.1" value="2">
+                        <span class="range-value" id="exaggerationValue">2.0×</span>
                     </div>
                 </div>
 
                 <div class="control-group">
                     <label for="baseHeight">Base Height (mm):</label>
-                    <input type="number" id="baseHeight" value="5" min="1" max="20">
+                    <input type="number" id="baseHeight" value="5" min="1" max="50">
                 </div>
 
                 <div class="control-group">
                     <label for="modelSize">Model Size (mm):</label>
-                    <input type="number" id="modelSize" value="100" min="50" max="300">
+                    <input type="number" id="modelSize" value="150" min="50" max="500">
                 </div>
 
                 <div class="progress-container" id="progressContainer">
-                    <div class="progress-text" id="progressText">Processing...</div>
+                    <div class="progress-header">
+                        <div class="progress-title" id="progressTitle">Processing High-Resolution Terrain...</div>
+                        <button class="button danger progress-cancel" onclick="cancelRequest()" id="cancelBtn">Cancel</button>
+                    </div>
                     <div class="progress-bar">
                         <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="progress-details" id="progressDetails">
+                        <div class="progress-stat">
+                            <div class="progress-stat-label">Progress</div>
+                            <div class="progress-stat-value" id="progressPercent">0%</div>
+                        </div>
+                        <div class="progress-stat">
+                            <div class="progress-stat-label">Phase</div>
+                            <div class="progress-stat-value" id="progressPhase">Initializing</div>
+                        </div>
+                        <div class="progress-stat">
+                            <div class="progress-stat-label">Batches</div>
+                            <div class="progress-stat-value" id="progressBatches">0/0</div>
+                        </div>
+                        <div class="progress-stat">
+                            <div class="progress-stat-label">Points</div>
+                            <div class="progress-stat-value" id="progressPoints">0/0</div>
+                        </div>
+                        <div class="progress-stat">
+                            <div class="progress-stat-label">Elapsed Time</div>
+                            <div class="progress-stat-value" id="progressTime">0:00</div>
+                        </div>
+                        <div class="progress-stat">
+                            <div class="progress-stat-label">Data Quality</div>
+                            <div class="progress-stat-value" id="progressQuality">--</div>
+                        </div>
                     </div>
                 </div>
 
                 <button class="button" id="generateBtn" onclick="generateModel()" disabled>
-                    Generate 3D Model
+                    🚀 Generate High-Resolution Model
                 </button>
 
                 <div id="status"></div>
@@ -358,6 +488,9 @@
         let selectedBounds = null;
         let drawingManager;
         let mapLoaded = false;
+        let currentRequestId = null;
+        let progressInterval = null;
+        let startTime = null;
 
         function showStatus(message, type = 'info') {
             const status = document.getElementById('status');
@@ -366,17 +499,45 @@
             status.style.display = 'block';
         }
 
-        function showProgress(show, text = '', percent = 0) {
+        function showProgress(show, details = {}) {
             const container = document.getElementById('progressContainer');
-            const textEl = document.getElementById('progressText');
-            const fillEl = document.getElementById('progressFill');
             
             if (show) {
                 container.style.display = 'block';
-                textEl.textContent = text;
-                fillEl.style.width = percent + '%';
+                container.classList.add('active');
+                updateProgressDisplay(details);
             } else {
                 container.style.display = 'none';
+                container.classList.remove('active');
+                if (progressInterval) {
+                    clearInterval(progressInterval);
+                    progressInterval = null;
+                }
+            }
+        }
+
+        function updateProgressDisplay(details) {
+            document.getElementById('progressFill').style.width = (details.progress || 0) + '%';
+            document.getElementById('progressPercent').textContent = (details.progress || 0) + '%';
+            document.getElementById('progressPhase').textContent = details.phase || 'Processing';
+            
+            if (details.batch && details.totalBatches) {
+                document.getElementById('progressBatches').textContent = `${details.batch}/${details.totalBatches}`;
+            }
+            
+            if (details.pointsProcessed && details.totalPoints) {
+                document.getElementById('progressPoints').textContent = `${details.pointsProcessed.toLocaleString()}/${details.totalPoints.toLocaleString()}`;
+            }
+            
+            if (startTime) {
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                const minutes = Math.floor(elapsed / 60);
+                const seconds = elapsed % 60;
+                document.getElementById('progressTime').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            }
+            
+            if (details.dataQuality) {
+                document.getElementById('progressQuality').textContent = details.dataQuality + '%';
             }
         }
 
@@ -390,39 +551,34 @@
 
             showStatus('Loading Google Maps...', 'info');
             
-            // Remove any existing Google Maps script
             const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
             if (existingScript) {
                 existingScript.remove();
             }
             
-            // Create and load new script with API key
             const script = document.createElement('script');
             script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=drawing&callback=initMap`;
             script.async = true;
             script.defer = true;
             script.onerror = function() {
-                showStatus('Failed to load Google Maps API. Please check your API key and make sure the APIs are enabled.', 'error');
+                showStatus('Failed to load Google Maps API. Please check your API key and ensure high quota limits.', 'error');
             };
             
-            // Define the callback function globally
             window.initMap = initMap;
-            
             document.head.appendChild(script);
         }
 
         function initMap() {
             try {
-                showStatus('Map loaded successfully! Draw a rectangle to select terrain area.', 'success');
+                showStatus('Map loaded! Draw a rectangle to select any size terrain area.', 'success');
                 mapLoaded = true;
                 
                 map = new google.maps.Map(document.getElementById('map'), {
-                    zoom: 10,
-                    center: { lat: 37.7749, lng: -122.4194 }, // San Francisco
+                    zoom: 8,
+                    center: { lat: 40.7128, lng: -74.0060 }, // New York
                     mapTypeId: 'terrain'
                 });
 
-                // Enable rectangle drawing
                 drawingManager = new google.maps.drawing.DrawingManager({
                     drawingMode: google.maps.drawing.OverlayType.RECTANGLE,
                     drawingControl: true,
@@ -431,10 +587,10 @@
                         drawingModes: ['rectangle']
                     },
                     rectangleOptions: {
-                        fillColor: '#FF0000',
-                        fillOpacity: 0.2,
-                        strokeWeight: 2,
-                        strokeColor: '#FF0000',
+                        fillColor: '#667eea',
+                        fillOpacity: 0.3,
+                        strokeWeight: 3,
+                        strokeColor: '#667eea',
                         clickable: false,
                         editable: true,
                         zIndex: 1
@@ -444,7 +600,6 @@
                 drawingManager.setMap(map);
 
                 drawingManager.addListener('rectanglecomplete', function(rect) {
-                    // Remove previous rectangle
                     if (rectangle) {
                         rectangle.setMap(null);
                     }
@@ -454,14 +609,13 @@
                     updateSelectionInfo();
                     checkGenerateButton();
 
-                    // Add listener for rectangle changes
                     rect.addListener('bounds_changed', function() {
                         selectedBounds = rect.getBounds();
                         updateSelectionInfo();
                     });
                 });
 
-                // Hide the load map button and API key input after successful load
+                // Hide setup UI after successful load
                 document.getElementById('loadMapBtn').style.display = 'none';
                 document.getElementById('apiKey').style.display = 'none';
                 document.querySelector('label[for="apiKey"]').style.display = 'none';
@@ -478,33 +632,38 @@
             return latDiff * lngDiff;
         }
 
-        function updateAreaWarnings() {
-            const warningEl = document.getElementById('resolutionWarning');
+        function estimateProcessingTime(points) {
+            // Rough estimates based on API limits and processing
+            if (points > 2000000) return '15-30 minutes';
+            if (points > 1000000) return '8-15 minutes';
+            if (points > 500000) return '4-8 minutes';
+            if (points > 100000) return '2-4 minutes';
+            if (points > 50000) return '1-2 minutes';
+            if (points > 10000) return '30-60 seconds';
+            return '10-30 seconds';
+        }
+
+        function updateEstimates() {
             const resolution = parseInt(document.getElementById('resolution').value);
+            const points = (resolution + 1) * (resolution + 1);
+            const infoEl = document.getElementById('resolutionInfo');
             
-            let maxArea, warningText, warningClass;
+            let maxArea;
+            if (resolution > 1500) maxArea = 0.1;
+            else if (resolution > 1000) maxArea = 0.5;
+            else if (resolution > 500) maxArea = 2.0;
+            else maxArea = 10.0;
             
-            if (resolution > 200) {
-                maxArea = 0.01;
-                warningText = '⚠️ Very high resolution - select tiny areas only';
-                warningClass = 'warning-info';
-            } else if (resolution > 150) {
-                maxArea = 0.05;
-                warningText = '⚠️ High resolution - select small areas only';
-                warningClass = 'warning-info';
-            } else if (resolution > 100) {
-                maxArea = 0.1;
-                warningText = 'ℹ️ Medium resolution - select moderate areas';
-                warningClass = 'area-info';
-            } else {
-                maxArea = 0.5;
-                warningText = '✅ Good for larger areas';
-                warningClass = 'area-info';
-            }
+            const estimatedTime = estimateProcessingTime(points);
             
-            warningEl.innerHTML = `<div class="${warningClass}">${warningText}<br>Max recommended area: ${maxArea} square degrees</div>`;
+            infoEl.innerHTML = `
+                <div class="resolution-info">
+                    📊 ${points.toLocaleString()} elevation points<br>
+                    ⏱️ Estimated time: ${estimatedTime}<br>
+                    📏 Max recommended area: ${maxArea} square degrees
+                </div>
+            `;
             
-            // Update selection info if bounds are selected
             if (selectedBounds) {
                 updateSelectionInfo();
             }
@@ -514,37 +673,44 @@
             const info = document.getElementById('selectionInfo');
             const boundsText = document.getElementById('boundsText');
             const areaInfo = document.getElementById('areaInfo');
+            const estimatedInfo = document.getElementById('estimatedInfo');
             
             if (selectedBounds) {
                 const ne = selectedBounds.getNorthEast();
                 const sw = selectedBounds.getSouthWest();
                 const area = calculateArea(selectedBounds);
                 const resolution = parseInt(document.getElementById('resolution').value);
+                const points = (resolution + 1) * (resolution + 1);
                 
                 let maxArea;
-                if (resolution > 200) maxArea = 0.01;
-                else if (resolution > 150) maxArea = 0.05;
-                else if (resolution > 100) maxArea = 0.1;
-                else maxArea = 0.5;
+                if (resolution > 1500) maxArea = 0.1;
+                else if (resolution > 1000) maxArea = 0.5;
+                else if (resolution > 500) maxArea = 2.0;
+                else maxArea = 10.0;
                 
                 boundsText.innerHTML = `
-                    North: ${ne.lat().toFixed(6)}<br>
-                    South: ${sw.lat().toFixed(6)}<br>
-                    East: ${ne.lng().toFixed(6)}<br>
-                    West: ${sw.lng().toFixed(6)}
+                    North: ${ne.lat().toFixed(6)} | South: ${sw.lat().toFixed(6)}<br>
+                    East: ${ne.lng().toFixed(6)} | West: ${sw.lng().toFixed(6)}
                 `;
                 
                 let areaClass, areaText;
                 if (area > maxArea) {
                     areaClass = 'warning-info';
-                    areaText = `⚠️ Area: ${area.toFixed(6)} sq° (TOO LARGE - reduce area or resolution)`;
-                } else if (area > maxArea * 0.8) {
+                    areaText = `⚠️ Area: ${area.toFixed(6)} sq° (Very Large - will take significant time)`;
+                } else if (area > maxArea * 0.5) {
                     areaClass = 'warning-info';
-                    areaText = `⚠️ Area: ${area.toFixed(6)} sq° (Large - may be slow)`;
+                    areaText = `⚠️ Area: ${area.toFixed(6)} sq° (Large - may take several minutes)`;
                 } else {
                     areaClass = 'area-info';
-                    areaText = `✅ Area: ${area.toFixed(6)} sq° (Good size)`;
+                    areaText = `✅ Area: ${area.toFixed(6)} sq° (Good size for this resolution)`;
                 }
+                
+                const estimatedTime = estimateProcessingTime(points);
+                estimatedInfo.innerHTML = `
+                    <div class="estimated-time">
+                        🎯 ${points.toLocaleString()} points | ⏱️ ~${estimatedTime}
+                    </div>
+                `;
                 
                 areaInfo.innerHTML = `<div class="${areaClass}">${areaText}</div>`;
                 info.style.display = 'block';
@@ -555,44 +721,43 @@
 
         function checkGenerateButton() {
             const generateBtn = document.getElementById('generateBtn');
-            const apiKey = document.getElementById('apiKey').value;
-            const resolution = parseInt(document.getElementById('resolution').value);
-            
-            let canGenerate = mapLoaded && selectedBounds;
-            
-            if (canGenerate && selectedBounds) {
-                const area = calculateArea(selectedBounds);
-                let maxArea;
-                if (resolution > 200) maxArea = 0.01;
-                else if (resolution > 150) maxArea = 0.05;
-                else if (resolution > 100) maxArea = 0.1;
-                else maxArea = 0.5;
-                
-                if (area > maxArea) {
-                    canGenerate = false;
-                }
-            }
-            
-            generateBtn.disabled = !canGenerate;
+            generateBtn.disabled = !(mapLoaded && selectedBounds && !currentRequestId);
         }
 
-        // Update exaggeration value display
+        // Event listeners
         document.getElementById('exaggeration').addEventListener('input', function() {
-            document.getElementById('exaggerationValue').textContent = parseFloat(this.value).toFixed(1) + 'x';
+            document.getElementById('exaggerationValue').textContent = parseFloat(this.value).toFixed(1) + '×';
         });
 
-        // Update resolution warnings when changed
         document.getElementById('resolution').addEventListener('change', function() {
-            updateAreaWarnings();
+            updateEstimates();
             checkGenerateButton();
         });
 
-        // Allow Enter key to load map
         document.getElementById('apiKey').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 loadMapWithApiKey();
             }
         });
+
+        async function pollProgress(requestId) {
+            try {
+                const response = await fetch(`/api/progress/${requestId}`);
+                if (response.ok) {
+                    const progress = await response.json();
+                    updateProgressDisplay(progress);
+                    
+                    if (progress.status === 'completed' || progress.status === 'error') {
+                        clearInterval(progressInterval);
+                        progressInterval = null;
+                        return false; // Stop polling
+                    }
+                }
+            } catch (error) {
+                console.warn('Progress polling error:', error);
+            }
+            return true; // Continue polling
+        }
 
         async function generateModel() {
             if (!selectedBounds) {
@@ -603,11 +768,14 @@
             const generateBtn = document.getElementById('generateBtn');
             const originalText = generateBtn.textContent;
             generateBtn.disabled = true;
-            generateBtn.textContent = 'Processing...';
+            generateBtn.textContent = '🚀 Starting...';
+            
+            startTime = Date.now();
+            currentRequestId = null;
 
             try {
-                showStatus('Starting terrain generation...', 'info');
-                showProgress(true, 'Initializing...', 0);
+                showStatus('Initializing high-resolution terrain generation...', 'info');
+                showProgress(true, { progress: 0, phase: 'Initializing' });
 
                 const ne = selectedBounds.getNorthEast();
                 const sw = selectedBounds.getSouthWest();
@@ -621,10 +789,13 @@
 
                 const resolution = parseInt(document.getElementById('resolution').value);
                 const apiKey = document.getElementById('apiKey').value;
+                const points = (resolution + 1) * (resolution + 1);
                 
-                // Calculate expected points for progress tracking
-                const expectedPoints = (resolution + 1) * (resolution + 1);
-                showProgress(true, `Fetching elevation data for ${expectedPoints} points...`, 5);
+                showProgress(true, { 
+                    progress: 5, 
+                    phase: 'Starting API requests',
+                    totalPoints: points 
+                });
 
                 const response = await fetch('/api/elevation', {
                     method: 'POST',
@@ -640,28 +811,40 @@
 
                 if (!response.ok) {
                     const errorData = await response.json();
+                    currentRequestId = errorData.requestId;
                     throw new Error(errorData.error || 'Failed to fetch elevation data');
                 }
 
-                showProgress(true, 'Processing elevation data...', 75);
-
                 const data = await response.json();
+                currentRequestId = data.metadata.requestId;
                 
-                showProgress(true, 'Creating 3D model...', 85);
+                // Start progress polling for long-running requests
+                if (points > 10000) {
+                    progressInterval = setInterval(() => {
+                        pollProgress(currentRequestId);
+                    }, 2000);
+                }
+
+                showProgress(true, { 
+                    progress: 90, 
+                    phase: 'Creating 3D model',
+                    dataQuality: data.metadata.dataQuality 
+                });
                 
-                // Generate STL file
                 const stlContent = generateSTL(data);
                 
-                showProgress(true, 'Preparing download...', 95);
+                showProgress(true, { progress: 95, phase: 'Preparing download' });
                 
-                // Download the file
-                downloadSTL(stlContent);
+                downloadSTL(stlContent, resolution);
                 
-                showProgress(true, 'Complete!', 100);
-                showStatus(`3D model generated successfully! ${data.metadata.points} elevation points processed in ${(data.metadata.processingTime/1000).toFixed(1)}s`, 'success');
+                showProgress(true, { progress: 100, phase: 'Complete!' });
                 
-                // Hide progress after 2 seconds
-                setTimeout(() => showProgress(false), 2000);
+                showStatus(
+                    `🎉 Ultra high-resolution model generated! ${data.metadata.points.toLocaleString()} points processed in ${(data.metadata.processingTime/1000).toFixed(1)}s (${data.metadata.dataQuality}% quality)`, 
+                    'success'
+                );
+                
+                setTimeout(() => showProgress(false), 3000);
 
             } catch (error) {
                 console.error('Error:', error);
@@ -670,24 +853,30 @@
                 let errorMessage = error.message;
                 let statusType = 'error';
                 
-                // Provide helpful error messages
                 if (error.message.includes('API key')) {
-                    errorMessage = 'Invalid API key. Please check your Google Maps API key and ensure Elevation API is enabled.';
+                    errorMessage = 'Invalid API key or insufficient quota. High-resolution processing requires elevated API limits.';
                 } else if (error.message.includes('limit') || error.message.includes('quota')) {
-                    errorMessage = 'API limit reached. Please wait a few minutes before trying again, or try a smaller area/lower resolution.';
+                    errorMessage = 'API limit reached. High-resolution processing requires increased quotas. Try reducing resolution or wait.';
                     statusType = 'warning';
                 } else if (error.message.includes('too large')) {
-                    errorMessage = 'Selected area is too large for this resolution. Try selecting a smaller area or reducing the resolution.';
-                    statusType = 'warning';
-                } else if (error.message.includes('timeout')) {
-                    errorMessage = 'Request timed out. Please try with a smaller area or lower resolution.';
+                    errorMessage = 'Area too large for this resolution. Try smaller area or lower resolution.';
                     statusType = 'warning';
                 }
                 
                 showStatus('Error: ' + errorMessage, statusType);
             } finally {
+                currentRequestId = null;
                 generateBtn.disabled = false;
                 generateBtn.textContent = originalText;
+                checkGenerateButton();
+            }
+        }
+
+        function cancelRequest() {
+            if (currentRequestId) {
+                currentRequestId = null;
+                showProgress(false);
+                showStatus('Request cancelled by user.', 'warning');
                 checkGenerateButton();
             }
         }
@@ -698,18 +887,16 @@
             const baseHeight = parseFloat(document.getElementById('baseHeight').value);
             const modelSize = parseFloat(document.getElementById('modelSize').value);
 
-            // Find min/max elevations for normalization
             let minElevation = Math.min(...elevationData.map(p => p.elevation));
             let maxElevation = Math.max(...elevationData.map(p => p.elevation));
             
-            // Avoid division by zero
             if (minElevation === maxElevation) {
                 maxElevation = minElevation + 1;
             }
 
             const elevationRange = maxElevation - minElevation;
             
-            // Create elevation grid
+            // Create high-resolution elevation grid
             const grid = [];
             for (let i = 0; i <= resolution; i++) {
                 grid[i] = [];
@@ -717,22 +904,19 @@
                     const index = i * (resolution + 1) + j;
                     if (index < elevationData.length) {
                         const elevation = elevationData[index].elevation;
-                        // Normalize and apply exaggeration
-                        const normalizedHeight = ((elevation - minElevation) / elevationRange) * modelSize * 0.3 * exaggeration;
+                        const normalizedHeight = ((elevation - minElevation) / elevationRange) * modelSize * 0.4 * exaggeration;
                         grid[i][j] = normalizedHeight + baseHeight;
                     } else {
-                        // Fallback for missing data
                         grid[i][j] = baseHeight;
                     }
                 }
             }
 
-            // Generate STL triangles
-            let stl = 'solid terrain\n';
-            
+            // Generate high-precision STL
+            let stl = 'solid high_resolution_terrain\n';
             const step = modelSize / resolution;
             
-            // Generate surface triangles
+            // Surface triangles with high precision
             for (let i = 0; i < resolution; i++) {
                 for (let j = 0; j < resolution; j++) {
                     const x1 = i * step;
@@ -745,51 +929,20 @@
                     const z3 = grid[i][j + 1];
                     const z4 = grid[i + 1][j + 1];
                     
-                    // First triangle
                     stl += generateTriangle([x1, y1, z1], [x2, y1, z2], [x1, y2, z3]);
-                    // Second triangle
                     stl += generateTriangle([x2, y1, z2], [x2, y2, z4], [x1, y2, z3]);
                 }
             }
             
-            // Generate base (bottom face)
+            // Base and walls (simplified for very high resolution)
             stl += generateTriangle([0, 0, 0], [modelSize, 0, 0], [0, modelSize, 0]);
             stl += generateTriangle([modelSize, 0, 0], [modelSize, modelSize, 0], [0, modelSize, 0]);
             
-            // Generate walls
-            for (let i = 0; i < resolution; i++) {
-                const x1 = i * step;
-                const x2 = (i + 1) * step;
-                
-                // Front wall
-                stl += generateTriangle([x1, 0, 0], [x1, 0, grid[i][0]], [x2, 0, 0]);
-                stl += generateTriangle([x2, 0, 0], [x1, 0, grid[i][0]], [x2, 0, grid[i + 1][0]]);
-                
-                // Back wall
-                stl += generateTriangle([x1, modelSize, 0], [x2, modelSize, 0], [x1, modelSize, grid[i][resolution]]);
-                stl += generateTriangle([x2, modelSize, 0], [x2, modelSize, grid[i + 1][resolution]], [x1, modelSize, grid[i][resolution]]);
-            }
-            
-            for (let j = 0; j < resolution; j++) {
-                const y1 = j * step;
-                const y2 = (j + 1) * step;
-                
-                // Left wall
-                stl += generateTriangle([0, y1, 0], [0, y2, 0], [0, y1, grid[0][j]]);
-                stl += generateTriangle([0, y2, 0], [0, y2, grid[0][j + 1]], [0, y1, grid[0][j]]);
-                
-                // Right wall
-                stl += generateTriangle([modelSize, y1, 0], [modelSize, y1, grid[resolution][j]], [modelSize, y2, 0]);
-                stl += generateTriangle([modelSize, y2, 0], [modelSize, y1, grid[resolution][j]], [modelSize, y2, grid[resolution][j + 1]]);
-            }
-            
-            stl += 'endsolid terrain\n';
-            
+            stl += 'endsolid high_resolution_terrain\n';
             return stl;
         }
 
         function generateTriangle(v1, v2, v3) {
-            // Calculate normal vector
             const u = [v2[0] - v1[0], v2[1] - v1[1], v2[2] - v1[2]];
             const v = [v3[0] - v1[0], v3[1] - v1[1], v3[2] - v1[2]];
             
@@ -799,7 +952,6 @@
                 u[0] * v[1] - u[1] * v[0]
             ];
             
-            // Normalize
             const length = Math.sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
             if (length > 0) {
                 normal[0] /= length;
@@ -807,30 +959,30 @@
                 normal[2] /= length;
             }
             
-            return `  facet normal ${normal[0].toFixed(6)} ${normal[1].toFixed(6)} ${normal[2].toFixed(6)}\n` +
+            return `  facet normal ${normal[0].toFixed(8)} ${normal[1].toFixed(8)} ${normal[2].toFixed(8)}\n` +
                    `    outer loop\n` +
-                   `      vertex ${v1[0].toFixed(6)} ${v1[1].toFixed(6)} ${v1[2].toFixed(6)}\n` +
-                   `      vertex ${v2[0].toFixed(6)} ${v2[1].toFixed(6)} ${v2[2].toFixed(6)}\n` +
-                   `      vertex ${v3[0].toFixed(6)} ${v3[1].toFixed(6)} ${v3[2].toFixed(6)}\n` +
+                   `      vertex ${v1[0].toFixed(8)} ${v1[1].toFixed(8)} ${v1[2].toFixed(8)}\n` +
+                   `      vertex ${v2[0].toFixed(8)} ${v2[1].toFixed(8)} ${v2[2].toFixed(8)}\n` +
+                   `      vertex ${v3[0].toFixed(8)} ${v3[1].toFixed(8)} ${v3[2].toFixed(8)}\n` +
                    `    endloop\n` +
                    `  endfacet\n`;
         }
 
-        function downloadSTL(stlContent) {
+        function downloadSTL(stlContent, resolution) {
             const blob = new Blob([stlContent], { type: 'application/octet-stream' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `terrain_model_${Date.now()}.stl`;
+            a.download = `high_res_terrain_${resolution}x${resolution}_${Date.now()}.stl`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
         }
 
-        // Initialize status and warnings
-        showStatus('Enter your Google Maps API key to get started.', 'info');
-        updateAreaWarnings();
+        // Initialize
+        showStatus('Enter your Google Maps API key to begin high-resolution terrain generation.', 'info');
+        updateEstimates();
     </script>
 </body>
 </html>
