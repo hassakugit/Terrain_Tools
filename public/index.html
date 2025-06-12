@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -65,6 +64,7 @@
             display: flex;
             flex-direction: column;
             gap: 20px;
+            overflow-y: auto;
         }
 
         #map {
@@ -146,6 +146,12 @@
             border: 1px solid #c8e6c9;
         }
 
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
         .range-group {
             display: flex;
             align-items: center;
@@ -201,6 +207,56 @@
             line-height: 1.4;
         }
 
+        .progress-container {
+            display: none;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            font-size: 0.9rem;
+            color: #666;
+            text-align: center;
+        }
+
+        .area-info {
+            background: #e8f5e8;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            color: #2e7d32;
+            border: 1px solid #c8e6c9;
+            margin-top: 5px;
+        }
+
+        .warning-info {
+            background: #fff3cd;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+            margin-top: 5px;
+        }
+
         @media (max-width: 1024px) {
             .main-content {
                 grid-template-columns: 1fr;
@@ -247,16 +303,19 @@
                 <div class="selection-info" id="selectionInfo" style="display: none;">
                     <strong>Selected Area:</strong><br>
                     <span id="boundsText"></span>
+                    <div id="areaInfo"></div>
                 </div>
 
                 <div class="control-group">
                     <label for="resolution">Resolution (Grid Size):</label>
-                    <select id="resolution">
-                        <option value="50">50x50 (Fast)</option>
-                        <option value="100" selected>100x100 (Balanced)</option>
-                        <option value="150">150x150 (Detailed)</option>
-                        <option value="200">200x200 (High Detail)</option>
+                    <select id="resolution" onchange="updateAreaWarnings()">
+                        <option value="50">50x50 (Fast, Large Areas)</option>
+                        <option value="75">75x75 (Balanced)</option>
+                        <option value="100" selected>100x100 (Detailed)</option>
+                        <option value="150">150x150 (High Detail, Small Areas)</option>
+                        <option value="200">200x200 (Maximum Detail, Tiny Areas)</option>
                     </select>
+                    <div id="resolutionWarning"></div>
                 </div>
 
                 <div class="control-group">
@@ -275,6 +334,13 @@
                 <div class="control-group">
                     <label for="modelSize">Model Size (mm):</label>
                     <input type="number" id="modelSize" value="100" min="50" max="300">
+                </div>
+
+                <div class="progress-container" id="progressContainer">
+                    <div class="progress-text" id="progressText">Processing...</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
                 </div>
 
                 <button class="button" id="generateBtn" onclick="generateModel()" disabled>
@@ -298,6 +364,20 @@
             status.className = `status ${type}`;
             status.textContent = message;
             status.style.display = 'block';
+        }
+
+        function showProgress(show, text = '', percent = 0) {
+            const container = document.getElementById('progressContainer');
+            const textEl = document.getElementById('progressText');
+            const fillEl = document.getElementById('progressFill');
+            
+            if (show) {
+                container.style.display = 'block';
+                textEl.textContent = text;
+                fillEl.style.width = percent + '%';
+            } else {
+                container.style.display = 'none';
+            }
         }
 
         function loadMapWithApiKey() {
@@ -392,13 +472,60 @@
             }
         }
 
+        function calculateArea(bounds) {
+            const latDiff = Math.abs(bounds.getNorthEast().lat() - bounds.getSouthWest().lat());
+            const lngDiff = Math.abs(bounds.getNorthEast().lng() - bounds.getSouthWest().lng());
+            return latDiff * lngDiff;
+        }
+
+        function updateAreaWarnings() {
+            const warningEl = document.getElementById('resolutionWarning');
+            const resolution = parseInt(document.getElementById('resolution').value);
+            
+            let maxArea, warningText, warningClass;
+            
+            if (resolution > 200) {
+                maxArea = 0.01;
+                warningText = '⚠️ Very high resolution - select tiny areas only';
+                warningClass = 'warning-info';
+            } else if (resolution > 150) {
+                maxArea = 0.05;
+                warningText = '⚠️ High resolution - select small areas only';
+                warningClass = 'warning-info';
+            } else if (resolution > 100) {
+                maxArea = 0.1;
+                warningText = 'ℹ️ Medium resolution - select moderate areas';
+                warningClass = 'area-info';
+            } else {
+                maxArea = 0.5;
+                warningText = '✅ Good for larger areas';
+                warningClass = 'area-info';
+            }
+            
+            warningEl.innerHTML = `<div class="${warningClass}">${warningText}<br>Max recommended area: ${maxArea} square degrees</div>`;
+            
+            // Update selection info if bounds are selected
+            if (selectedBounds) {
+                updateSelectionInfo();
+            }
+        }
+
         function updateSelectionInfo() {
             const info = document.getElementById('selectionInfo');
             const boundsText = document.getElementById('boundsText');
+            const areaInfo = document.getElementById('areaInfo');
             
             if (selectedBounds) {
                 const ne = selectedBounds.getNorthEast();
                 const sw = selectedBounds.getSouthWest();
+                const area = calculateArea(selectedBounds);
+                const resolution = parseInt(document.getElementById('resolution').value);
+                
+                let maxArea;
+                if (resolution > 200) maxArea = 0.01;
+                else if (resolution > 150) maxArea = 0.05;
+                else if (resolution > 100) maxArea = 0.1;
+                else maxArea = 0.5;
                 
                 boundsText.innerHTML = `
                     North: ${ne.lat().toFixed(6)}<br>
@@ -406,6 +533,20 @@
                     East: ${ne.lng().toFixed(6)}<br>
                     West: ${sw.lng().toFixed(6)}
                 `;
+                
+                let areaClass, areaText;
+                if (area > maxArea) {
+                    areaClass = 'warning-info';
+                    areaText = `⚠️ Area: ${area.toFixed(6)} sq° (TOO LARGE - reduce area or resolution)`;
+                } else if (area > maxArea * 0.8) {
+                    areaClass = 'warning-info';
+                    areaText = `⚠️ Area: ${area.toFixed(6)} sq° (Large - may be slow)`;
+                } else {
+                    areaClass = 'area-info';
+                    areaText = `✅ Area: ${area.toFixed(6)} sq° (Good size)`;
+                }
+                
+                areaInfo.innerHTML = `<div class="${areaClass}">${areaText}</div>`;
                 info.style.display = 'block';
             } else {
                 info.style.display = 'none';
@@ -414,12 +555,36 @@
 
         function checkGenerateButton() {
             const generateBtn = document.getElementById('generateBtn');
-            generateBtn.disabled = !(mapLoaded && selectedBounds);
+            const apiKey = document.getElementById('apiKey').value;
+            const resolution = parseInt(document.getElementById('resolution').value);
+            
+            let canGenerate = mapLoaded && selectedBounds;
+            
+            if (canGenerate && selectedBounds) {
+                const area = calculateArea(selectedBounds);
+                let maxArea;
+                if (resolution > 200) maxArea = 0.01;
+                else if (resolution > 150) maxArea = 0.05;
+                else if (resolution > 100) maxArea = 0.1;
+                else maxArea = 0.5;
+                
+                if (area > maxArea) {
+                    canGenerate = false;
+                }
+            }
+            
+            generateBtn.disabled = !canGenerate;
         }
 
         // Update exaggeration value display
         document.getElementById('exaggeration').addEventListener('input', function() {
             document.getElementById('exaggerationValue').textContent = parseFloat(this.value).toFixed(1) + 'x';
+        });
+
+        // Update resolution warnings when changed
+        document.getElementById('resolution').addEventListener('change', function() {
+            updateAreaWarnings();
+            checkGenerateButton();
         });
 
         // Allow Enter key to load map
@@ -436,11 +601,13 @@
             }
 
             const generateBtn = document.getElementById('generateBtn');
+            const originalText = generateBtn.textContent;
             generateBtn.disabled = true;
-            generateBtn.textContent = 'Generating...';
+            generateBtn.textContent = 'Processing...';
 
             try {
-                showStatus('Fetching elevation data...', 'info');
+                showStatus('Starting terrain generation...', 'info');
+                showProgress(true, 'Initializing...', 0);
 
                 const ne = selectedBounds.getNorthEast();
                 const sw = selectedBounds.getSouthWest();
@@ -455,7 +622,10 @@
                 const resolution = parseInt(document.getElementById('resolution').value);
                 const apiKey = document.getElementById('apiKey').value;
                 
-                // Use server endpoint to avoid CORS issues
+                // Calculate expected points for progress tracking
+                const expectedPoints = (resolution + 1) * (resolution + 1);
+                showProgress(true, `Fetching elevation data for ${expectedPoints} points...`, 5);
+
                 const response = await fetch('/api/elevation', {
                     method: 'POST',
                     headers: {
@@ -473,82 +643,53 @@
                     throw new Error(errorData.error || 'Failed to fetch elevation data');
                 }
 
+                showProgress(true, 'Processing elevation data...', 75);
+
                 const data = await response.json();
                 
-                showStatus('Creating 3D model...', 'info');
+                showProgress(true, 'Creating 3D model...', 85);
                 
                 // Generate STL file
                 const stlContent = generateSTL(data);
                 
+                showProgress(true, 'Preparing download...', 95);
+                
                 // Download the file
                 downloadSTL(stlContent);
                 
-                showStatus('3D model generated successfully! Download started.', 'success');
+                showProgress(true, 'Complete!', 100);
+                showStatus(`3D model generated successfully! ${data.metadata.points} elevation points processed in ${(data.metadata.processingTime/1000).toFixed(1)}s`, 'success');
+                
+                // Hide progress after 2 seconds
+                setTimeout(() => showProgress(false), 2000);
 
             } catch (error) {
                 console.error('Error:', error);
-                showStatus('Error generating model: ' + error.message, 'error');
+                showProgress(false);
+                
+                let errorMessage = error.message;
+                let statusType = 'error';
+                
+                // Provide helpful error messages
+                if (error.message.includes('API key')) {
+                    errorMessage = 'Invalid API key. Please check your Google Maps API key and ensure Elevation API is enabled.';
+                } else if (error.message.includes('limit') || error.message.includes('quota')) {
+                    errorMessage = 'API limit reached. Please wait a few minutes before trying again, or try a smaller area/lower resolution.';
+                    statusType = 'warning';
+                } else if (error.message.includes('too large')) {
+                    errorMessage = 'Selected area is too large for this resolution. Try selecting a smaller area or reducing the resolution.';
+                    statusType = 'warning';
+                } else if (error.message.includes('timeout')) {
+                    errorMessage = 'Request timed out. Please try with a smaller area or lower resolution.';
+                    statusType = 'warning';
+                }
+                
+                showStatus('Error: ' + errorMessage, statusType);
             } finally {
                 generateBtn.disabled = false;
-                generateBtn.textContent = 'Generate 3D Model';
+                generateBtn.textContent = originalText;
                 checkGenerateButton();
             }
-        }
-
-        async function fetchElevationDataDirect(bounds, resolution, apiKey) {
-            // Calculate grid points based on resolution
-            const latStep = (bounds.north - bounds.south) / resolution;
-            const lngStep = (bounds.east - bounds.west) / resolution;
-            
-            const locations = [];
-            for (let i = 0; i <= resolution; i++) {
-                for (let j = 0; j <= resolution; j++) {
-                    const lat = bounds.south + (i * latStep);
-                    const lng = bounds.west + (j * lngStep);
-                    locations.push({ lat, lng });
-                }
-            }
-
-            console.log(`Generated ${locations.length} elevation points`);
-
-            // Google Maps Elevation API has a limit of 512 locations per request
-            const elevationData = [];
-            const batchSize = 512;
-            const totalBatches = Math.ceil(locations.length / batchSize);
-            
-            for (let i = 0; i < locations.length; i += batchSize) {
-                const batchIndex = Math.floor(i / batchSize) + 1;
-                console.log(`Processing batch ${batchIndex}/${totalBatches}`);
-                
-                const batch = locations.slice(i, i + batchSize);
-                const locationString = batch.map(loc => `${loc.lat},${loc.lng}`).join('|');
-                
-                try {
-                    const url = `https://maps.googleapis.com/maps/api/elevation/json?locations=${encodeURIComponent(locationString)}&key=${apiKey}`;
-                    
-                    const response = await fetch(url);
-                    const data = await response.json();
-
-                    if (data.status === 'OK') {
-                        elevationData.push(...data.results);
-                    } else if (data.status === 'REQUEST_DENIED') {
-                        throw new Error('API key is invalid or APIs not enabled');
-                    } else if (data.status === 'OVER_DAILY_LIMIT') {
-                        throw new Error('API daily limit exceeded');
-                    } else if (data.status === 'OVER_QUERY_LIMIT') {
-                        throw new Error('API query limit exceeded');
-                    } else {
-                        throw new Error(`Elevation API error: ${data.status} - ${data.error_message || 'Unknown error'}`);
-                    }
-                } catch (fetchError) {
-                    if (fetchError.name === 'TypeError') {
-                        throw new Error('Network error - please check your internet connection');
-                    }
-                    throw fetchError;
-                }
-            }
-
-            return elevationData;
         }
 
         function generateSTL(data) {
@@ -574,10 +715,15 @@
                 grid[i] = [];
                 for (let j = 0; j <= resolution; j++) {
                     const index = i * (resolution + 1) + j;
-                    const elevation = elevationData[index].elevation;
-                    // Normalize and apply exaggeration
-                    const normalizedHeight = ((elevation - minElevation) / elevationRange) * modelSize * 0.3 * exaggeration;
-                    grid[i][j] = normalizedHeight + baseHeight;
+                    if (index < elevationData.length) {
+                        const elevation = elevationData[index].elevation;
+                        // Normalize and apply exaggeration
+                        const normalizedHeight = ((elevation - minElevation) / elevationRange) * modelSize * 0.3 * exaggeration;
+                        grid[i][j] = normalizedHeight + baseHeight;
+                    } else {
+                        // Fallback for missing data
+                        grid[i][j] = baseHeight;
+                    }
                 }
             }
 
@@ -675,15 +821,16 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'terrain_model.stl';
+            a.download = `terrain_model_${Date.now()}.stl`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
         }
 
-        // Initialize status
+        // Initialize status and warnings
         showStatus('Enter your Google Maps API key to get started.', 'info');
+        updateAreaWarnings();
     </script>
 </body>
 </html>
