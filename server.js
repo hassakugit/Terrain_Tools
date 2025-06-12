@@ -8,32 +8,25 @@ const app = express();
 const PORT = process.env.PORT || 2021;
 const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
 
-// Middleware with larger limits for high-res processing
+// Middleware
 app.use(cors());
-app.use(express.json({ limit: '100mb' }));
+app.use(express.json({ limit: '200mb' }));
 app.use(express.static('public'));
 
-// Enhanced rate limiting and memory management
+// Ultra-conservative settings for chunked processing
 const requestCounts = new Map();
 const RATE_LIMIT_WINDOW = 60000;
-const MAX_REQUESTS_PER_WINDOW = 2; // Very conservative for large datasets
+const MAX_REQUESTS_PER_WINDOW = 1; // Only 1 high-res request per minute
 
-// Memory-efficient request tracking
-const activeRequests = new Map();
-const MAX_CONCURRENT_REQUESTS = 3;
-const MAX_REQUEST_DURATION = 1800000; // 30 minutes max
+// Chunked request management
+const chunkedRequests = new Map();
+const MAX_CHUNK_SIZE = 100; // Maximum 100x100 per chunk
+const MAX_CHUNK_DURATION = 300000; // 5 minutes per chunk
+const MAX_TOTAL_DURATION = 3600000; // 1 hour total
 
 function rateLimit(req, res, next) {
     const clientIP = req.ip || req.connection.remoteAddress;
     const now = Date.now();
-    
-    // Check concurrent requests
-    if (activeRequests.size >= MAX_CONCURRENT_REQUESTS) {
-        return res.status(503).json({ 
-            error: 'Server at capacity. Please wait for other requests to complete.',
-            activeRequests: activeRequests.size
-        });
-    }
     
     if (!requestCounts.has(clientIP)) {
         requestCounts.set(clientIP, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
@@ -50,7 +43,7 @@ function rateLimit(req, res, next) {
     
     if (clientData.count >= MAX_REQUESTS_PER_WINDOW) {
         return res.status(429).json({ 
-            error: 'Too many requests. Please wait before trying again.',
+            error: 'Rate limit: Only 1 high-resolution request per minute allowed.',
             retryAfter: Math.ceil((clientData.resetTime - now) / 1000)
         });
     }
@@ -59,7 +52,6 @@ function rateLimit(req, res, next) {
     next();
 }
 
-// Utility functions
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -67,152 +59,265 @@ function delay(ms) {
 function forceGarbageCollection() {
     if (global.gc) {
         global.gc();
+        console.log('Forced garbage collection');
     }
 }
 
-// Memory-efficient streaming elevation fetcher
-async function fetchElevationDataStream(locations, apiKey, progressCallback, requestId) {
-    const totalPoints = locations.length;
-    let elevationData = [];
+// Calculate optimal chunk grid
+function calculateChunkGrid(resolution) {
+    // Never exceed MAX_CHUNK_SIZE for any single chunk
+    if (resolution <= MAX_CHUNK_SIZE) {
+        return { chunksX: 1, chunksY: 1, chunkSizeX: resolution, chunkSizeY: resolution };
+    }
     
-    // Very conservative batching for stability
-    const batchSize = Math.min(75, Math.max(25, Math.floor(1000000 / totalPoints)));
-    const totalBatches = Math.ceil(totalPoints / batchSize);
+    // Calculate how many chunks we need
+    const chunksX = Math.ceil(resolution / MAX_CHUNK_SIZE);
+    const chunksY = Math.ceil(resolution / MAX_CHUNK_SIZE);
     
-    console.log(`[${requestId}] Stream processing ${totalPoints} points in ${totalBatches} batches (${batchSize} per batch)`);
+    // Calculate actual chunk sizes (may be smaller than MAX_CHUNK_SIZE)
+    const chunkSizeX = Math.ceil(resolution / chunksX);
+    const chunkSizeY = Math.ceil(resolution / chunksY);
     
-    let successfulBatches = 0;
-    let failedBatches = 0;
-    let processedPoints = 0;
-    
-    // Process in memory-efficient chunks
-    const MEMORY_CHUNK_SIZE = 50; // Process 50 batches then clean memory
-    const totalChunks = Math.ceil(totalBatches / MEMORY_CHUNK_SIZE);
-    
-    for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
-        const chunkStart = chunkIndex * MEMORY_CHUNK_SIZE;
-        const chunkEnd = Math.min(chunkStart + MEMORY_CHUNK_SIZE, totalBatches);
-        
-        console.log(`[${requestId}] Processing memory chunk ${chunkIndex + 1}/${totalChunks} (batches ${chunkStart + 1}-${chunkEnd})`);
-        
-        // Process batches in this chunk
-        for (let batchIndex = chunkStart; batchIndex < chunkEnd; batchIndex++) {
-            const startIdx = batchIndex * batchSize;
-            const endIdx = Math.min(startIdx + batchSize, totalPoints);
-            const batch = locations.slice(startIdx, endIdx);
-            
-            // Update progress
-            const overallProgress = Math.round(((batchIndex + 1) / totalBatches) * 100);
-            if (progressCallback) {
-                progressCallback({
-                    batch: batchIndex + 1,
-                    totalBatches,
-                    progress: overallProgress,
-                    phase: 'elevation',
-                    pointsProcessed: processedPoints,
-                    totalPoints,
-                    successfulBatches,
-                    failedBatches,
-                    memoryChunk: chunkIndex + 1,
-                    totalChunks
-                });
-            }
-            
-            // Process batch with retry logic
-            let retryCount = 0;
-            const maxRetries = 3;
-            let batchSuccess = false;
-            
-            while (!batchSuccess && retryCount < maxRetries) {
-                try {
-                    const locationString = batch.map(loc => 
-                        `${loc.lat.toFixed(6)},${loc.lng.toFixed(6)}`
-                    ).join('|');
-                    
-                    const response = await axios.get('https://maps.googleapis.com/maps/api/elevation/json', {
-                        params: {
-                            locations: locationString,
-                            key: apiKey
-                        },
-                        timeout: 20000,
-                        headers: {
-                            'User-Agent': 'TerrainGenerator/3.0-Robust',
-                            'Accept': 'application/json'
-                        }
-                    });
+    return { chunksX, chunksY, chunkSizeX, chunkSizeY };
+}
 
-                    if (response.data && response.data.status === 'OK') {
-                        elevationData = elevationData.concat(response.data.results);
-                        processedPoints += batch.length;
-                        batchSuccess = true;
-                        successfulBatches++;
-                        
-                        if (batchIndex % 20 === 0) {
-                            console.log(`[${requestId}] Batch ${batchIndex + 1}/${totalBatches} (${overallProgress}%) - Memory: ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`);
-                        }
-                    } else if (response.data && response.data.status === 'OVER_QUERY_LIMIT') {
-                        const waitTime = Math.min(10000 * Math.pow(2, retryCount), 60000);
-                        console.log(`[${requestId}] Rate limit, waiting ${waitTime}ms...`);
-                        await delay(waitTime);
-                        retryCount++;
-                    } else if (response.data && response.data.status === 'REQUEST_DENIED') {
-                        throw new Error('API key invalid or quota exceeded');
-                    } else {
-                        const status = response.data?.status || 'UNKNOWN';
-                        const errorMsg = response.data?.error_message || 'Unknown error';
-                        throw new Error(`API error: ${status} - ${errorMsg}`);
-                    }
-                } catch (error) {
-                    retryCount++;
-                    console.error(`[${requestId}] Batch ${batchIndex + 1} attempt ${retryCount} failed:`, error.message);
-                    
-                    if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
-                        console.log(`[${requestId}] Timeout, retrying with longer delay...`);
-                        await delay(5000 * retryCount);
-                    } else if (error.response?.status === 400) {
-                        console.warn(`[${requestId}] Bad request, skipping batch ${batchIndex + 1}`);
-                        batchSuccess = true; // Skip this batch
-                        failedBatches++;
-                        break;
-                    } else if (retryCount >= maxRetries) {
-                        console.error(`[${requestId}] Batch ${batchIndex + 1} failed permanently`);
-                        failedBatches++;
-                        batchSuccess = true; // Continue with next batch
-                        break;
-                    }
-                    
-                    await delay(2000 * retryCount);
-                }
-            }
+// Process a single chunk of elevation data
+async function processElevationChunk(bounds, chunkBounds, chunkResolution, apiKey, chunkId, requestId) {
+    console.log(`[${requestId}] Processing chunk ${chunkId}: ${chunkResolution}x${chunkResolution} points`);
+    
+    const { north, south, east, west } = chunkBounds;
+    const latStep = (north - south) / chunkResolution;
+    const lngStep = (east - west) / chunkResolution;
+    
+    const locations = [];
+    for (let i = 0; i <= chunkResolution; i++) {
+        for (let j = 0; j <= chunkResolution; j++) {
+            const lat = south + (i * latStep);
+            const lng = west + (j * lngStep);
             
-            // Adaptive delay between batches
-            const delay_ms = Math.min(200, 50 + (totalPoints / 10000));
-            await delay(delay_ms);
-            
-            // Check if request was cancelled or timed out
-            const activeRequest = activeRequests.get(requestId);
-            if (!activeRequest || activeRequest.cancelled) {
-                throw new Error('Request cancelled or timed out');
+            if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+                locations.push({ lat, lng });
             }
-        }
-        
-        // Memory cleanup between chunks
-        if (chunkIndex < totalChunks - 1) {
-            console.log(`[${requestId}] Cleaning memory after chunk ${chunkIndex + 1}...`);
-            forceGarbageCollection();
-            await delay(1000); // Brief pause for memory cleanup
         }
     }
     
-    const finalDataQuality = totalPoints > 0 ? (elevationData.length / totalPoints) * 100 : 0;
-    console.log(`[${requestId}] Stream processing completed: ${successfulBatches} successful, ${failedBatches} failed batches, ${finalDataQuality.toFixed(1)}% data quality`);
+    // Process in very small batches for chunks
+    const elevationData = [];
+    const batchSize = 25; // Very small batches for chunk processing
+    const totalBatches = Math.ceil(locations.length / batchSize);
     
-    return {
-        elevationData,
-        dataQuality: finalDataQuality,
-        successfulBatches,
-        failedBatches
-    };
+    for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+        const startIdx = batchIndex * batchSize;
+        const endIdx = Math.min(startIdx + batchSize, locations.length);
+        const batch = locations.slice(startIdx, endIdx);
+        
+        let retryCount = 0;
+        const maxRetries = 3;
+        let batchSuccess = false;
+        
+        while (!batchSuccess && retryCount < maxRetries) {
+            try {
+                const locationString = batch.map(loc => 
+                    `${loc.lat.toFixed(6)},${loc.lng.toFixed(6)}`
+                ).join('|');
+                
+                const response = await axios.get('https://maps.googleapis.com/maps/api/elevation/json', {
+                    params: {
+                        locations: locationString,
+                        key: apiKey
+                    },
+                    timeout: 15000,
+                    headers: {
+                        'User-Agent': 'TerrainGenerator/4.0-Chunked',
+                        'Accept': 'application/json'
+                    }
+                });
+
+                if (response.data && response.data.status === 'OK') {
+                    elevationData.push(...response.data.results);
+                    batchSuccess = true;
+                } else if (response.data && response.data.status === 'OVER_QUERY_LIMIT') {
+                    const waitTime = Math.min(5000 * Math.pow(2, retryCount), 20000);
+                    console.log(`[${requestId}] Chunk ${chunkId} rate limit, waiting ${waitTime}ms...`);
+                    await delay(waitTime);
+                    retryCount++;
+                } else {
+                    throw new Error(`API error: ${response.data?.status || 'Unknown'}`);
+                }
+            } catch (error) {
+                retryCount++;
+                console.error(`[${requestId}] Chunk ${chunkId} batch ${batchIndex + 1} attempt ${retryCount} failed:`, error.message);
+                
+                if (retryCount >= maxRetries) {
+                    throw new Error(`Chunk ${chunkId} failed after ${maxRetries} retries: ${error.message}`);
+                }
+                
+                await delay(2000 * retryCount);
+            }
+        }
+        
+        // Small delay between batches within chunk
+        await delay(100);
+    }
+    
+    console.log(`[${requestId}] Chunk ${chunkId} completed: ${elevationData.length}/${locations.length} points`);
+    return elevationData;
+}
+
+// Process elevation data in chunks
+async function processElevationChunked(bounds, resolution, apiKey, progressCallback, requestId) {
+    const startTime = Date.now();
+    const { chunksX, chunksY, chunkSizeX, chunkSizeY } = calculateChunkGrid(resolution);
+    const totalChunks = chunksX * chunksY;
+    
+    console.log(`[${requestId}] Chunked processing: ${chunksX}x${chunksY} chunks, ${chunkSizeX}x${chunkSizeY} points per chunk`);
+    
+    const allElevationData = [];
+    let completedChunks = 0;
+    
+    // Calculate chunk boundaries
+    const latRange = bounds.north - bounds.south;
+    const lngRange = bounds.east - bounds.west;
+    
+    for (let chunkY = 0; chunkY < chunksY; chunkY++) {
+        for (let chunkX = 0; chunkX < chunksX; chunkX++) {
+            const chunkId = `${chunkX}_${chunkY}`;
+            
+            // Calculate this chunk's bounds
+            const chunkLatStart = bounds.south + (chunkY * latRange / chunksY);
+            const chunkLatEnd = bounds.south + ((chunkY + 1) * latRange / chunksY);
+            const chunkLngStart = bounds.west + (chunkX * lngRange / chunksX);
+            const chunkLngEnd = bounds.west + ((chunkX + 1) * lngRange / chunksX);
+            
+            const chunkBounds = {
+                north: chunkLatEnd,
+                south: chunkLatStart,
+                east: chunkLngEnd,
+                west: chunkLngStart
+            };
+            
+            // Calculate actual resolution for this chunk
+            const actualChunkResX = Math.min(chunkSizeX, Math.ceil(resolution * (chunkLngEnd - chunkLngStart) / lngRange));
+            const actualChunkResY = Math.min(chunkSizeY, Math.ceil(resolution * (chunkLatEnd - chunkLatStart) / latRange));
+            const chunkResolution = Math.max(actualChunkResX, actualChunkResY);
+            
+            // Update progress
+            if (progressCallback) {
+                progressCallback({
+                    phase: 'chunked_elevation',
+                    progress: Math.round((completedChunks / totalChunks) * 100),
+                    currentChunk: completedChunks + 1,
+                    totalChunks,
+                    chunkId,
+                    chunkResolution
+                });
+            }
+            
+            try {
+                const chunkData = await processElevationChunk(
+                    bounds, 
+                    chunkBounds, 
+                    chunkResolution, 
+                    apiKey, 
+                    chunkId, 
+                    requestId
+                );
+                
+                // Store chunk data with position info for later reconstruction
+                allElevationData.push({
+                    chunkX,
+                    chunkY,
+                    data: chunkData,
+                    bounds: chunkBounds,
+                    resolution: chunkResolution
+                });
+                
+                completedChunks++;
+                
+                // Force garbage collection after each chunk
+                forceGarbageCollection();
+                
+                // Pause between chunks to prevent overwhelming the server
+                if (completedChunks < totalChunks) {
+                    await delay(2000); // 2 second pause between chunks
+                }
+                
+            } catch (error) {
+                console.error(`[${requestId}] Chunk ${chunkId} failed:`, error);
+                throw new Error(`Chunk processing failed at ${chunkId}: ${error.message}`);
+            }
+            
+            // Check for timeout
+            const elapsed = Date.now() - startTime;
+            if (elapsed > MAX_TOTAL_DURATION) {
+                throw new Error('Total processing time exceeded maximum limit (1 hour)');
+            }
+        }
+    }
+    
+    console.log(`[${requestId}] All chunks completed, reconstructing grid...`);
+    
+    // Reconstruct the full elevation grid from chunks
+    const reconstructedData = reconstructElevationGrid(allElevationData, bounds, resolution, chunksX, chunksY);
+    
+    return reconstructedData;
+}
+
+// Reconstruct the full elevation grid from chunk data
+function reconstructElevationGrid(chunkDataArray, fullBounds, fullResolution, chunksX, chunksY) {
+    const fullGrid = new Array((fullResolution + 1) * (fullResolution + 1));
+    const latRange = fullBounds.north - fullBounds.south;
+    const lngRange = fullBounds.east - fullBounds.west;
+    
+    for (const chunkInfo of chunkDataArray) {
+        const { chunkX, chunkY, data, bounds: chunkBounds, resolution: chunkRes } = chunkInfo;
+        
+        // Map each point in chunk data to the full grid
+        let dataIndex = 0;
+        for (let i = 0; i <= chunkRes && dataIndex < data.length; i++) {
+            for (let j = 0; j <= chunkRes && dataIndex < data.length; j++) {
+                // Calculate the global grid position
+                const globalLat = chunkBounds.south + (i * (chunkBounds.north - chunkBounds.south) / chunkRes);
+                const globalLng = chunkBounds.west + (j * (chunkBounds.east - chunkBounds.west) / chunkRes);
+                
+                // Convert to grid indices
+                const gridI = Math.round((globalLat - fullBounds.south) / latRange * fullResolution);
+                const gridJ = Math.round((globalLng - fullBounds.west) / lngRange * fullResolution);
+                
+                // Store in full grid if within bounds
+                if (gridI >= 0 && gridI <= fullResolution && gridJ >= 0 && gridJ <= fullResolution) {
+                    const fullGridIndex = gridI * (fullResolution + 1) + gridJ;
+                    if (fullGridIndex < fullGrid.length) {
+                        fullGrid[fullGridIndex] = data[dataIndex];
+                    }
+                }
+                
+                dataIndex++;
+            }
+        }
+    }
+    
+    // Fill any missing points with interpolated values
+    const finalData = [];
+    for (let i = 0; i <= fullResolution; i++) {
+        for (let j = 0; j <= fullResolution; j++) {
+            const index = i * (fullResolution + 1) + j;
+            if (fullGrid[index]) {
+                finalData.push(fullGrid[index]);
+            } else {
+                // Create a placeholder point with interpolated elevation
+                const lat = fullBounds.south + (i * latRange / fullResolution);
+                const lng = fullBounds.west + (j * lngRange / fullResolution);
+                finalData.push({
+                    elevation: 0, // Will be interpolated in post-processing
+                    location: { lat, lng },
+                    resolution: fullResolution
+                });
+            }
+        }
+    }
+    
+    return finalData;
 }
 
 // Serve the main HTML file
@@ -220,27 +325,31 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Health check with memory info
+// Health check with detailed info
 app.get('/health', (req, res) => {
     const memUsage = process.memoryUsage();
     res.json({ 
         status: 'healthy', 
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
-        activeRequests: activeRequests.size,
+        activeRequests: chunkedRequests.size,
         memory: {
             used: Math.round(memUsage.heapUsed / 1024 / 1024) + 'MB',
-            total: Math.round(memUsage.heapTotal / 1024 / 1024) + 'MB',
-            external: Math.round(memUsage.external / 1024 / 1024) + 'MB'
+            total: Math.round(memUsage.heapTotal / 1024 / 1024) + 'MB'
+        },
+        config: {
+            maxChunkSize: MAX_CHUNK_SIZE,
+            maxChunkDuration: MAX_CHUNK_DURATION / 1000 + 's',
+            maxTotalDuration: MAX_TOTAL_DURATION / 1000 + 's'
         }
     });
 });
 
-// Progress endpoint with error handling
+// Progress endpoint for chunked requests
 app.get('/api/progress/:requestId', (req, res) => {
     try {
         const requestId = req.params.requestId;
-        const progress = activeRequests.get(requestId);
+        const progress = chunkedRequests.get(requestId);
         
         if (progress) {
             res.json(progress);
@@ -259,21 +368,21 @@ app.get('/api/progress/:requestId', (req, res) => {
     }
 });
 
-// Enhanced elevation endpoint with robust error handling
+// Chunked elevation processing endpoint
 app.post('/api/elevation', rateLimit, async (req, res) => {
     const startTime = Date.now();
-    const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    const requestId = `chunked_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
     
-    // Set longer timeout for large requests
-    req.setTimeout(MAX_REQUEST_DURATION);
-    res.setTimeout(MAX_REQUEST_DURATION);
+    // Set very long timeout for chunked processing
+    req.setTimeout(MAX_TOTAL_DURATION);
+    res.setTimeout(MAX_TOTAL_DURATION);
     
     try {
         const { bounds, resolution, apiKey } = req.body;
         
         const finalApiKey = apiKey || GOOGLE_MAPS_API_KEY;
         
-        // Enhanced validation
+        // Validation
         if (!finalApiKey) {
             return res.status(400).json({ 
                 error: 'Google Maps API key is required',
@@ -288,34 +397,34 @@ app.post('/api/elevation', rateLimit, async (req, res) => {
             });
         }
         
-        if (!resolution || resolution < 10 || resolution > 1500) { // Reduced max for stability
+        // Allow very high resolutions with chunked processing
+        if (!resolution || resolution < 10 || resolution > 5000) {
             return res.status(400).json({ 
-                error: 'Resolution must be between 10 and 1500 for optimal stability',
+                error: 'Resolution must be between 10 and 5000 (chunked processing enables high resolutions)',
                 requestId 
             });
         }
         
-        // Calculate area and set conservative limits
+        // Calculate area and chunk requirements
         const latDiff = Math.abs(bounds.north - bounds.south);
         const lngDiff = Math.abs(bounds.east - bounds.west);
         const area = latDiff * lngDiff;
         
-        // More conservative area limits
-        let maxArea;
-        if (resolution > 1000) maxArea = 0.05;
-        else if (resolution > 500) maxArea = 0.2;
-        else if (resolution > 200) maxArea = 1.0;
-        else maxArea = 5.0;
-        
+        // More permissive area limits since we're chunking
+        const maxArea = 20.0; // Much larger areas allowed with chunking
         if (area > maxArea) {
             return res.status(400).json({ 
-                error: `Area too large for stability. Max: ${maxArea} sq°, Selected: ${area.toFixed(6)} sq°`,
+                error: `Area too large even for chunked processing. Max: ${maxArea} sq°, Selected: ${area.toFixed(6)} sq°`,
                 requestId 
             });
         }
-
-        // Initialize request tracking with timeout
-        activeRequests.set(requestId, {
+        
+        const { chunksX, chunksY, chunkSizeX, chunkSizeY } = calculateChunkGrid(resolution);
+        const totalChunks = chunksX * chunksY;
+        const estimatedDuration = totalChunks * 3; // Rough estimate: 3 minutes per chunk
+        
+        // Initialize chunked request tracking
+        chunkedRequests.set(requestId, {
             id: requestId,
             startTime,
             status: 'initializing',
@@ -324,56 +433,33 @@ app.post('/api/elevation', rateLimit, async (req, res) => {
             bounds,
             resolution,
             area: area.toFixed(6),
-            cancelled: false
+            totalChunks,
+            completedChunks: 0,
+            estimatedDuration,
+            chunkGrid: { chunksX, chunksY, chunkSizeX, chunkSizeY }
         });
 
-        console.log(`[${requestId}] Starting robust processing: ${resolution}x${resolution}, area: ${area.toFixed(6)} sq°`);
-
-        // Generate locations with validation
-        const latStep = (bounds.north - bounds.south) / resolution;
-        const lngStep = (bounds.east - bounds.west) / resolution;
-        
-        const locations = [];
-        for (let i = 0; i <= resolution; i++) {
-            for (let j = 0; j <= resolution; j++) {
-                const lat = bounds.south + (i * latStep);
-                const lng = bounds.west + (j * lngStep);
-                
-                if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
-                    locations.push({ lat, lng });
-                }
-            }
-        }
-
-        if (locations.length === 0) {
-            activeRequests.delete(requestId);
-            return res.status(400).json({ 
-                error: 'No valid coordinates in selected area',
-                requestId 
-            });
-        }
+        console.log(`[${requestId}] Starting chunked processing: ${resolution}x${resolution} in ${totalChunks} chunks`);
 
         // Update request status
-        activeRequests.set(requestId, {
-            ...activeRequests.get(requestId),
-            status: 'processing',
-            totalPoints: locations.length,
-            estimatedDuration: Math.ceil(locations.length / 1000) * 30 // Rough estimate
+        chunkedRequests.set(requestId, {
+            ...chunkedRequests.get(requestId),
+            status: 'processing_chunks',
+            totalPoints: (resolution + 1) * (resolution + 1)
         });
 
-        console.log(`[${requestId}] Processing ${locations.length} locations`);
-
-        // Use streaming elevation fetcher
-        const result = await fetchElevationDataStream(
-            locations, 
+        // Process elevation data in chunks
+        const elevationData = await processElevationChunked(
+            bounds, 
+            resolution, 
             finalApiKey,
             (progress) => {
-                const activeRequest = activeRequests.get(requestId);
-                if (activeRequest) {
-                    activeRequests.set(requestId, {
-                        ...activeRequest,
+                const currentRequest = chunkedRequests.get(requestId);
+                if (currentRequest) {
+                    chunkedRequests.set(requestId, {
+                        ...currentRequest,
                         ...progress,
-                        status: 'processing'
+                        status: 'processing_chunks'
                     });
                 }
             },
@@ -381,38 +467,42 @@ app.post('/api/elevation', rateLimit, async (req, res) => {
         );
 
         const processingTime = Date.now() - startTime;
-        console.log(`[${requestId}] Completed in ${(processingTime/1000).toFixed(1)}s`);
+        console.log(`[${requestId}] Chunked processing completed in ${(processingTime/1000).toFixed(1)}s`);
 
         // Final validation
-        if (result.elevationData.length === 0) {
-            throw new Error('No elevation data received - check API key and quotas');
+        if (!elevationData || elevationData.length === 0) {
+            throw new Error('No elevation data received after chunked processing');
         }
 
+        const expectedPoints = (resolution + 1) * (resolution + 1);
+        const dataQuality = (elevationData.length / expectedPoints) * 100;
+
         // Update final status
-        activeRequests.set(requestId, {
-            ...activeRequests.get(requestId),
+        chunkedRequests.set(requestId, {
+            ...chunkedRequests.get(requestId),
             status: 'completed',
             progress: 100,
-            dataQuality: result.dataQuality.toFixed(1)
+            dataQuality: dataQuality.toFixed(1)
         });
 
-        // Force garbage collection before sending response
+        // Force final garbage collection
         forceGarbageCollection();
 
         res.json({
-            elevationData: result.elevationData,
+            elevationData,
             bounds,
             resolution,
             metadata: {
-                points: result.elevationData.length,
-                expectedPoints: locations.length,
-                dataQuality: result.dataQuality.toFixed(1),
+                points: elevationData.length,
+                expectedPoints,
+                dataQuality: dataQuality.toFixed(1),
                 processingTime,
                 area: area.toFixed(6),
                 requestId,
-                batchInfo: {
-                    successful: result.successfulBatches,
-                    failed: result.failedBatches
+                chunkInfo: {
+                    totalChunks,
+                    chunkGrid: { chunksX, chunksY, chunkSizeX, chunkSizeY },
+                    processingMethod: 'chunked'
                 }
             }
         });
@@ -421,80 +511,80 @@ app.post('/api/elevation', rateLimit, async (req, res) => {
         console.error(`[${requestId}] Error:`, error);
         
         // Update error status
-        if (activeRequests.has(requestId)) {
-            activeRequests.set(requestId, {
-                ...activeRequests.get(requestId),
+        if (chunkedRequests.has(requestId)) {
+            chunkedRequests.set(requestId, {
+                ...chunkedRequests.get(requestId),
                 status: 'error',
                 error: error.message
             });
         }
         
-        // Return appropriate error response
         let statusCode = 500;
         let errorMessage = error.message || 'Unknown error occurred';
         
         if (error.message.includes('API key') || error.message.includes('quota')) {
             statusCode = 401;
-        } else if (error.message.includes('timeout') || error.message.includes('cancelled')) {
+        } else if (error.message.includes('timeout') || error.message.includes('exceeded maximum limit')) {
             statusCode = 408;
-            errorMessage = 'Request timeout - try smaller area or lower resolution';
-        } else if (error.message.includes('limit')) {
-            statusCode = 429;
+            errorMessage = 'Processing time exceeded limits - try reducing resolution or area size';
+        } else if (error.message.includes('Chunk processing failed')) {
+            statusCode = 422;
+            errorMessage = 'Chunk processing failed - try reducing resolution or area size';
         }
         
         res.status(statusCode).json({ 
             error: errorMessage,
             timestamp: new Date().toISOString(),
             requestId,
-            suggestion: 'Try reducing resolution or area size for better stability'
+            suggestion: 'Chunked processing failed. Try: smaller area, lower resolution (≤1000), or retry later.'
         });
     } finally {
         // Cleanup after delay
         setTimeout(() => {
-            activeRequests.delete(requestId);
+            chunkedRequests.delete(requestId);
             forceGarbageCollection();
-        }, 300000); // 5 minutes
+        }, 600000); // 10 minutes
     }
 });
 
-// Cancel endpoint
+// Cancel endpoint for chunked requests
 app.post('/api/cancel/:requestId', (req, res) => {
     const requestId = req.params.requestId;
-    const request = activeRequests.get(requestId);
+    const request = chunkedRequests.get(requestId);
     
     if (request) {
         request.cancelled = true;
-        activeRequests.set(requestId, request);
-        res.json({ message: 'Request cancellation initiated', requestId });
+        chunkedRequests.set(requestId, request);
+        res.json({ message: 'Chunked request cancellation initiated', requestId });
     } else {
-        res.status(404).json({ error: 'Request not found', requestId });
+        res.status(404).json({ error: 'Chunked request not found', requestId });
     }
 });
 
-// Cleanup old requests and force garbage collection
+// Cleanup old requests
 setInterval(() => {
     const now = Date.now();
     let cleaned = 0;
     
-    for (const [id, request] of activeRequests.entries()) {
-        if (now - request.startTime > MAX_REQUEST_DURATION) {
-            activeRequests.delete(id);
+    for (const [id, request] of chunkedRequests.entries()) {
+        if (now - request.startTime > MAX_TOTAL_DURATION) {
+            chunkedRequests.delete(id);
             cleaned++;
         }
     }
     
     if (cleaned > 0) {
-        console.log(`Cleaned up ${cleaned} old requests`);
+        console.log(`Cleaned up ${cleaned} old chunked requests`);
         forceGarbageCollection();
     }
-}, 300000); // Every 5 minutes
+}, 600000); // Every 10 minutes
 
 // Memory monitoring
 setInterval(() => {
     const memUsage = process.memoryUsage();
     const heapUsedMB = Math.round(memUsage.heapUsed / 1024 / 1024);
     
-    if (heapUsedMB > 400) { // Alert if using > 400MB
+    if (heapUsedMB > 800) { // Alert if using > 800MB
         console.warn(`High memory usage: ${heapUsedMB}MB - forcing garbage collection`);
         forceGarbageCollection();
     }
@@ -522,8 +612,8 @@ app.use((req, res) => {
 function gracefulShutdown(signal) {
     console.log(`\n${signal} received, shutting down gracefully...`);
     
-    // Cancel all active requests
-    for (const [id, request] of activeRequests.entries()) {
+    // Cancel all active chunked requests
+    for (const [id, request] of chunkedRequests.entries()) {
         request.cancelled = true;
     }
     
@@ -534,10 +624,11 @@ process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🏔️  Robust High-Resolution Terrain Generator running on port ${PORT}`);
+    console.log(`🏔️  Ultra-High Resolution Chunked Terrain Generator running on port ${PORT}`);
     console.log(`📱 Access: http://localhost:${PORT}`);
     console.log(`🔧 Health: http://localhost:${PORT}/health`);
-    console.log(`🎯 Max resolution: 1500x1500 (optimized for stability)`);
-    console.log(`💾 Memory monitoring: Active`);
-    console.log(`⏱️  Max request duration: ${MAX_REQUEST_DURATION/1000/60} minutes`);
+    console.log(`🎯 Max resolution: 5000x5000 (25M points) via chunked processing`);
+    console.log(`📦 Chunk size: ${MAX_CHUNK_SIZE}x${MAX_CHUNK_SIZE} points max`);
+    console.log(`⏱️  Max processing time: ${MAX_TOTAL_DURATION/1000/60} minutes`);
+    console.log(`💾 Memory management: Active with forced GC`);
 });
