@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Standalone Terrain Generator</title>
+    <title>Browser Terrain Generator</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -217,8 +217,8 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🏔️ Standalone Terrain Generator</h1>
-            <p>Generate 3D terrain models directly in your browser - no server required!</p>
+            <h1>🏔️ Browser Terrain Generator</h1>
+            <p>Generate 3D terrain models using Google Maps ElevationService (CORS-safe)</p>
         </div>
 
         <div class="main-content">
@@ -228,8 +228,8 @@
 
             <div class="controls">
                 <div class="info-box">
-                    <strong>✨ Direct Browser Processing</strong><br>
-                    This version processes everything in your browser using Google's Elevation API directly.
+                    <strong>🔧 Browser-Safe Processing</strong><br>
+                    Uses Google Maps JavaScript API's ElevationService - no CORS issues!
                 </div>
 
                 <div class="control-group">
@@ -242,7 +242,7 @@
                     <strong>📋 Instructions:</strong><br>
                     1. Enter API key and load map<br>
                     2. Draw rectangle to select area<br>
-                    3. Choose resolution (start small!)<br>
+                    3. Choose resolution (conservative limits)<br>
                     4. Generate 3D model
                 </div>
 
@@ -253,17 +253,18 @@
                 </div>
 
                 <div class="control-group">
-                    <label for="resolution">Resolution (Start Small!):</label>
+                    <label for="resolution">Resolution (Browser-Safe Limits):</label>
                     <select id="resolution" onchange="updateInfo()">
-                        <option value="25">25×25 (676 points - Test)</option>
-                        <option value="50" selected>50×50 (2,601 points - Good)</option>
-                        <option value="75">75×75 (5,776 points - High)</option>
-                        <option value="100">100×100 (10,201 points - Very High)</option>
-                        <option value="150">150×150 (22,801 points - Ultra)</option>
-                        <option value="200">200×200 (40,401 points - Maximum)</option>
+                        <option value="20">20×20 (441 points - Quick Test)</option>
+                        <option value="30">30×30 (961 points - Good Test)</option>
+                        <option value="40" selected>40×40 (1,681 points - Balanced)</option>
+                        <option value="50">50×50 (2,601 points - High Quality)</option>
+                        <option value="60">60×60 (3,721 points - Very High)</option>
+                        <option value="75">75×75 (5,776 points - Professional)</option>
+                        <option value="100">100×100 (10,201 points - Maximum Safe)</option>
                     </select>
                     <div class="warning-box" style="margin-top: 10px;">
-                        <strong>⚠️ Browser Limitations:</strong> Start with 50×50 or smaller. Larger resolutions may be slow or fail in browsers.
+                        <strong>⚠️ ElevationService Limits:</strong> Google limits requests to ~100 per second. Larger resolutions may hit rate limits.
                     </div>
                 </div>
 
@@ -286,7 +287,7 @@
                 </div>
 
                 <div class="progress-container" id="progressContainer">
-                    <div><strong id="progressTitle">Processing in browser...</strong></div>
+                    <div><strong id="progressTitle">Processing with ElevationService...</strong></div>
                     <div class="progress-bar">
                         <div class="progress-fill" id="progressFill"></div>
                     </div>
@@ -306,6 +307,7 @@
         let map, rectangle, selectedBounds = null;
         let mapLoaded = false;
         let isProcessing = false;
+        let elevationService = null;
 
         function showStatus(message, type = 'info') {
             const status = document.getElementById('status');
@@ -351,6 +353,9 @@
                     center: { lat: 40.7128, lng: -74.0060 },
                     mapTypeId: 'terrain'
                 });
+
+                // Initialize ElevationService
+                elevationService = new google.maps.ElevationService();
 
                 const drawingManager = new google.maps.drawing.DrawingManager({
                     drawingMode: google.maps.drawing.OverlayType.RECTANGLE,
@@ -404,9 +409,9 @@
                     `E: ${ne.lng().toFixed(4)}, W: ${sw.lng().toFixed(4)}`;
                 
                 let areaClass = '';
-                if (area > 0.1) areaClass = '⚠️ Large area - may be slow';
-                else if (area > 0.05) areaClass = '⚠️ Moderate area';
-                else areaClass = '✅ Good size';
+                if (area > 0.01) areaClass = '⚠️ Large area - may hit rate limits';
+                else if (area > 0.005) areaClass = '⚠️ Moderate area - be patient';
+                else areaClass = '✅ Good size for ElevationService';
                 
                 document.getElementById('areaText').innerHTML = 
                     `Area: ${area.toFixed(6)} sq° ${areaClass}`;
@@ -420,7 +425,7 @@
         function updateInfo() {
             const resolution = parseInt(document.getElementById('resolution').value);
             const points = (resolution + 1) * (resolution + 1);
-            // Could add more info display here
+            // Could add estimated time info here
         }
 
         function checkGenerateButton() {
@@ -428,7 +433,7 @@
             btn.disabled = !(mapLoaded && selectedBounds && !isProcessing);
         }
 
-        async function fetchElevationData(bounds, resolution, apiKey) {
+        async function fetchElevationDataWithService(bounds, resolution) {
             const latStep = (bounds.north - bounds.south) / resolution;
             const lngStep = (bounds.east - bounds.west) / resolution;
             
@@ -437,14 +442,14 @@
                 for (let j = 0; j <= resolution; j++) {
                     const lat = bounds.south + (i * latStep);
                     const lng = bounds.west + (j * lngStep);
-                    locations.push({ lat, lng });
+                    locations.push(new google.maps.LatLng(lat, lng));
                 }
             }
 
-            console.log(`Fetching elevation for ${locations.length} points`);
+            console.log(`Fetching elevation for ${locations.length} points using ElevationService`);
 
             const elevationData = [];
-            const batchSize = 100; // Small batches for browser
+            const batchSize = 50; // Conservative batch size for ElevationService
             const totalBatches = Math.ceil(locations.length / batchSize);
             
             for (let i = 0; i < locations.length; i += batchSize) {
@@ -452,27 +457,36 @@
                 const batch = locations.slice(i, i + batchSize);
                 const progress = Math.round((batchIndex / totalBatches) * 80); // 80% for data fetching
                 
-                showProgress(true, progress, `Fetching batch ${batchIndex}/${totalBatches}...`);
+                showProgress(true, progress, `Processing batch ${batchIndex}/${totalBatches} with ElevationService...`);
                 
                 try {
-                    const locationString = batch.map(loc => `${loc.lat},${loc.lng}`).join('|');
-                    const url = `https://maps.googleapis.com/maps/api/elevation/json?locations=${encodeURIComponent(locationString)}&key=${apiKey}`;
-                    
-                    const response = await fetch(url);
-                    const data = await response.json();
+                    const results = await new Promise((resolve, reject) => {
+                        elevationService.getElevationForLocations({
+                            locations: batch
+                        }, (results, status) => {
+                            if (status === 'OK' && results) {
+                                resolve(results);
+                            } else if (status === 'OVER_QUERY_LIMIT') {
+                                reject(new Error('Rate limit exceeded. Try smaller area or resolution.'));
+                            } else if (status === 'REQUEST_DENIED') {
+                                reject(new Error('Request denied. Check your API key permissions.'));
+                            } else {
+                                reject(new Error(`ElevationService error: ${status}`));
+                            }
+                        });
+                    });
 
-                    if (data.status === 'OK') {
-                        elevationData.push(...data.results);
-                    } else {
-                        throw new Error(`Elevation API error: ${data.status} - ${data.error_message || 'Unknown error'}`);
-                    }
+                    elevationData.push(...results);
+
                 } catch (error) {
                     console.error('Batch error:', error);
-                    throw new Error(`Failed to fetch elevation data: ${error.message}`);
+                    throw error;
                 }
 
-                // Small delay to prevent overwhelming the API
-                await new Promise(resolve => setTimeout(resolve, 200));
+                // Delay between batches to respect rate limits
+                if (batchIndex < totalBatches) {
+                    await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
+                }
             }
 
             return elevationData;
@@ -490,7 +504,7 @@
             isProcessing = true;
 
             try {
-                showStatus('Starting terrain generation in browser...', 'info');
+                showStatus('Starting terrain generation with ElevationService...', 'info');
                 showProgress(true, 5, 'Initializing...');
 
                 const ne = selectedBounds.getNorthEast();
@@ -504,10 +518,9 @@
                 };
 
                 const resolution = parseInt(document.getElementById('resolution').value);
-                const apiKey = document.getElementById('apiKey').value;
 
-                // Fetch elevation data directly from Google API
-                const elevationData = await fetchElevationData(bounds, resolution, apiKey);
+                // Fetch elevation data using Google Maps ElevationService
+                const elevationData = await fetchElevationDataWithService(bounds, resolution);
 
                 showProgress(true, 85, 'Creating 3D model...');
 
@@ -522,7 +535,7 @@
                 showProgress(true, 100, 'Complete!');
                 
                 showStatus(
-                    `✅ Model generated successfully! ${elevationData.length} points processed in browser.`,
+                    `✅ Model generated successfully! ${elevationData.length} points processed with ElevationService.`,
                     'success'
                 );
 
@@ -531,7 +544,15 @@
             } catch (error) {
                 console.error('Error:', error);
                 showProgress(false);
-                showStatus('Error: ' + error.message, 'error');
+                
+                let errorMessage = error.message;
+                if (error.message.includes('Rate limit') || error.message.includes('OVER_QUERY_LIMIT')) {
+                    errorMessage = 'Rate limit exceeded. Try: smaller area, lower resolution, or wait a few minutes.';
+                } else if (error.message.includes('REQUEST_DENIED')) {
+                    errorMessage = 'API access denied. Check that your API key has Elevation API enabled.';
+                }
+                
+                showStatus('Error: ' + errorMessage, 'error');
             } finally {
                 isProcessing = false;
                 generateBtn.disabled = false;
@@ -571,7 +592,7 @@
             }
 
             // Generate STL
-            let stl = 'solid standalone_terrain\n';
+            let stl = 'solid browser_terrain\n';
             const step = modelSize / resolution;
             
             // Surface triangles
@@ -592,7 +613,7 @@
             stl += generateTriangle([0, 0, 0], [modelSize, 0, 0], [0, modelSize, 0]);
             stl += generateTriangle([modelSize, 0, 0], [modelSize, modelSize, 0], [0, modelSize, 0]);
             
-            stl += 'endsolid standalone_terrain\n';
+            stl += 'endsolid browser_terrain\n';
             return stl;
         }
 
@@ -628,7 +649,7 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `standalone_terrain_${resolution}x${resolution}_${Date.now()}.stl`;
+            a.download = `browser_terrain_${resolution}x${resolution}_${Date.now()}.stl`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
