@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reliable Terrain Generator</title>
+    <title>Standalone Terrain Generator</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -100,14 +100,6 @@
             cursor: not-allowed;
         }
         
-        .button.danger {
-            background: #dc3545;
-        }
-        
-        .button.danger:hover {
-            background: #c82333;
-        }
-        
         .status {
             padding: 15px;
             border-radius: 6px;
@@ -152,13 +144,6 @@
             display: block;
         }
         
-        .progress-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-        
         .progress-bar {
             width: 100%;
             height: 10px;
@@ -173,32 +158,6 @@
             background: #667eea;
             width: 0%;
             transition: width 0.3s ease;
-        }
-        
-        .progress-stats {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-top: 15px;
-        }
-        
-        .progress-stat {
-            background: white;
-            padding: 10px;
-            border-radius: 4px;
-            text-align: center;
-            border: 1px solid #ddd;
-        }
-        
-        .progress-stat-label {
-            font-size: 12px;
-            color: #666;
-            margin-bottom: 5px;
-        }
-        
-        .progress-stat-value {
-            font-weight: bold;
-            color: #333;
         }
         
         .info-box {
@@ -258,8 +217,8 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🏔️ Reliable Terrain Generator</h1>
-            <p>Generate high-quality 3D printable terrain models with stable processing</p>
+            <h1>🏔️ Standalone Terrain Generator</h1>
+            <p>Generate 3D terrain models directly in your browser - no server required!</p>
         </div>
 
         <div class="main-content">
@@ -268,9 +227,9 @@
             </div>
 
             <div class="controls">
-                <div class="warning-box">
-                    <strong>⚠️ API Key Required</strong><br>
-                    Enter your Google Maps API key with Elevation API enabled.
+                <div class="info-box">
+                    <strong>✨ Direct Browser Processing</strong><br>
+                    This version processes everything in your browser using Google's Elevation API directly.
                 </div>
 
                 <div class="control-group">
@@ -283,7 +242,7 @@
                     <strong>📋 Instructions:</strong><br>
                     1. Enter API key and load map<br>
                     2. Draw rectangle to select area<br>
-                    3. Choose resolution and settings<br>
+                    3. Choose resolution (start small!)<br>
                     4. Generate 3D model
                 </div>
 
@@ -294,16 +253,18 @@
                 </div>
 
                 <div class="control-group">
-                    <label for="resolution">Resolution:</label>
+                    <label for="resolution">Resolution (Start Small!):</label>
                     <select id="resolution" onchange="updateInfo()">
-                        <option value="50">50×50 (2,601 points - Fast)</option>
-                        <option value="100">100×100 (10,201 points - Good)</option>
-                        <option value="200" selected>200×200 (40,401 points - High Quality)</option>
-                        <option value="300">300×300 (90,601 points - Very High)</option>
-                        <option value="500">500×500 (251,001 points - Professional)</option>
-                        <option value="750">750×750 (563,501 points - Ultra)</option>
-                        <option value="1000">1000×1000 (1M+ points - Maximum)</option>
+                        <option value="25">25×25 (676 points - Test)</option>
+                        <option value="50" selected>50×50 (2,601 points - Good)</option>
+                        <option value="75">75×75 (5,776 points - High)</option>
+                        <option value="100">100×100 (10,201 points - Very High)</option>
+                        <option value="150">150×150 (22,801 points - Ultra)</option>
+                        <option value="200">200×200 (40,401 points - Maximum)</option>
                     </select>
+                    <div class="warning-box" style="margin-top: 10px;">
+                        <strong>⚠️ Browser Limitations:</strong> Start with 50×50 or smaller. Larger resolutions may be slow or fail in browsers.
+                    </div>
                 </div>
 
                 <div class="control-group">
@@ -321,35 +282,15 @@
 
                 <div class="control-group">
                     <label for="modelSize">Model Size (mm):</label>
-                    <input type="number" id="modelSize" value="150" min="50" max="300">
+                    <input type="number" id="modelSize" value="100" min="50" max="300">
                 </div>
 
                 <div class="progress-container" id="progressContainer">
-                    <div class="progress-header">
-                        <strong id="progressTitle">Processing...</strong>
-                        <button class="button danger" onclick="cancelRequest()" style="width: auto; padding: 5px 15px;">Cancel</button>
-                    </div>
+                    <div><strong id="progressTitle">Processing in browser...</strong></div>
                     <div class="progress-bar">
                         <div class="progress-fill" id="progressFill"></div>
                     </div>
-                    <div class="progress-stats">
-                        <div class="progress-stat">
-                            <div class="progress-stat-label">Progress</div>
-                            <div class="progress-stat-value" id="progressPercent">0%</div>
-                        </div>
-                        <div class="progress-stat">
-                            <div class="progress-stat-label">Phase</div>
-                            <div class="progress-stat-value" id="progressPhase">Starting</div>
-                        </div>
-                        <div class="progress-stat">
-                            <div class="progress-stat-label">Time</div>
-                            <div class="progress-stat-value" id="progressTime">0:00</div>
-                        </div>
-                        <div class="progress-stat">
-                            <div class="progress-stat-label">Quality</div>
-                            <div class="progress-stat-value" id="progressQuality">--</div>
-                        </div>
-                    </div>
+                    <div id="progressText">Initializing...</div>
                 </div>
 
                 <button class="button" id="generateBtn" onclick="generateModel()" disabled>
@@ -364,9 +305,7 @@
     <script>
         let map, rectangle, selectedBounds = null;
         let mapLoaded = false;
-        let currentRequestId = null;
-        let progressInterval = null;
-        let startTime = null;
+        let isProcessing = false;
 
         function showStatus(message, type = 'info') {
             const status = document.getElementById('status');
@@ -374,35 +313,14 @@
             status.textContent = message;
         }
 
-        function showProgress(show, details = {}) {
+        function showProgress(show, progress = 0, text = '') {
             const container = document.getElementById('progressContainer');
             if (show) {
                 container.classList.add('active');
-                updateProgress(details);
+                document.getElementById('progressFill').style.width = progress + '%';
+                document.getElementById('progressText').textContent = text;
             } else {
                 container.classList.remove('active');
-                if (progressInterval) {
-                    clearInterval(progressInterval);
-                    progressInterval = null;
-                }
-            }
-        }
-
-        function updateProgress(details) {
-            document.getElementById('progressFill').style.width = (details.progress || 0) + '%';
-            document.getElementById('progressPercent').textContent = (details.progress || 0) + '%';
-            document.getElementById('progressPhase').textContent = details.phase || 'Processing';
-            
-            if (startTime) {
-                const elapsed = Math.floor((Date.now() - startTime) / 1000);
-                const minutes = Math.floor(elapsed / 60);
-                const seconds = elapsed % 60;
-                document.getElementById('progressTime').textContent = 
-                    `${minutes}:${seconds.toString().padStart(2, '0')}`;
-            }
-            
-            if (details.dataQuality) {
-                document.getElementById('progressQuality').textContent = details.dataQuality + '%';
             }
         }
 
@@ -468,7 +386,6 @@
                 document.getElementById('loadBtn').style.display = 'none';
                 document.getElementById('apiKey').style.display = 'none';
                 document.querySelector('label[for="apiKey"]').style.display = 'none';
-                document.querySelector('.warning-box').style.display = 'none';
 
             } catch (error) {
                 showStatus('Error initializing map: ' + error.message, 'error');
@@ -486,8 +403,13 @@
                     `N: ${ne.lat().toFixed(4)}, S: ${sw.lat().toFixed(4)}<br>` +
                     `E: ${ne.lng().toFixed(4)}, W: ${sw.lng().toFixed(4)}`;
                 
+                let areaClass = '';
+                if (area > 0.1) areaClass = '⚠️ Large area - may be slow';
+                else if (area > 0.05) areaClass = '⚠️ Moderate area';
+                else areaClass = '✅ Good size';
+                
                 document.getElementById('areaText').innerHTML = 
-                    `Area: ${area.toFixed(6)} sq° ${area > 1 ? '(Large)' : '(Good size)'}`;
+                    `Area: ${area.toFixed(6)} sq° ${areaClass}`;
                 
                 info.style.display = 'block';
             } else {
@@ -498,12 +420,62 @@
         function updateInfo() {
             const resolution = parseInt(document.getElementById('resolution').value);
             const points = (resolution + 1) * (resolution + 1);
-            // Update any resolution-specific info here
+            // Could add more info display here
         }
 
         function checkGenerateButton() {
             const btn = document.getElementById('generateBtn');
-            btn.disabled = !(mapLoaded && selectedBounds && !currentRequestId);
+            btn.disabled = !(mapLoaded && selectedBounds && !isProcessing);
+        }
+
+        async function fetchElevationData(bounds, resolution, apiKey) {
+            const latStep = (bounds.north - bounds.south) / resolution;
+            const lngStep = (bounds.east - bounds.west) / resolution;
+            
+            const locations = [];
+            for (let i = 0; i <= resolution; i++) {
+                for (let j = 0; j <= resolution; j++) {
+                    const lat = bounds.south + (i * latStep);
+                    const lng = bounds.west + (j * lngStep);
+                    locations.push({ lat, lng });
+                }
+            }
+
+            console.log(`Fetching elevation for ${locations.length} points`);
+
+            const elevationData = [];
+            const batchSize = 100; // Small batches for browser
+            const totalBatches = Math.ceil(locations.length / batchSize);
+            
+            for (let i = 0; i < locations.length; i += batchSize) {
+                const batchIndex = Math.floor(i / batchSize) + 1;
+                const batch = locations.slice(i, i + batchSize);
+                const progress = Math.round((batchIndex / totalBatches) * 80); // 80% for data fetching
+                
+                showProgress(true, progress, `Fetching batch ${batchIndex}/${totalBatches}...`);
+                
+                try {
+                    const locationString = batch.map(loc => `${loc.lat},${loc.lng}`).join('|');
+                    const url = `https://maps.googleapis.com/maps/api/elevation/json?locations=${encodeURIComponent(locationString)}&key=${apiKey}`;
+                    
+                    const response = await fetch(url);
+                    const data = await response.json();
+
+                    if (data.status === 'OK') {
+                        elevationData.push(...data.results);
+                    } else {
+                        throw new Error(`Elevation API error: ${data.status} - ${data.error_message || 'Unknown error'}`);
+                    }
+                } catch (error) {
+                    console.error('Batch error:', error);
+                    throw new Error(`Failed to fetch elevation data: ${error.message}`);
+                }
+
+                // Small delay to prevent overwhelming the API
+                await new Promise(resolve => setTimeout(resolve, 200));
+            }
+
+            return elevationData;
         }
 
         async function generateModel() {
@@ -515,11 +487,11 @@
             const generateBtn = document.getElementById('generateBtn');
             generateBtn.disabled = true;
             generateBtn.textContent = 'Processing...';
-            startTime = Date.now();
+            isProcessing = true;
 
             try {
-                showStatus('Starting terrain generation...', 'info');
-                showProgress(true, { progress: 5, phase: 'Initializing' });
+                showStatus('Starting terrain generation in browser...', 'info');
+                showProgress(true, 5, 'Initializing...');
 
                 const ne = selectedBounds.getNorthEast();
                 const sw = selectedBounds.getSouthWest();
@@ -534,38 +506,23 @@
                 const resolution = parseInt(document.getElementById('resolution').value);
                 const apiKey = document.getElementById('apiKey').value;
 
-                showProgress(true, { progress: 10, phase: 'Fetching elevation data' });
+                // Fetch elevation data directly from Google API
+                const elevationData = await fetchElevationData(bounds, resolution, apiKey);
 
-                const response = await fetch('/api/elevation', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ bounds, resolution, apiKey })
-                });
+                showProgress(true, 85, 'Creating 3D model...');
 
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || 'Failed to fetch elevation data');
-                }
-
-                const data = await response.json();
-                currentRequestId = data.metadata?.requestId;
-
-                showProgress(true, { 
-                    progress: 85, 
-                    phase: 'Creating 3D model',
-                    dataQuality: data.metadata?.dataQuality 
-                });
-
-                const stlContent = generateSTL(data);
+                // Generate STL
+                const stlContent = generateSTL(elevationData, resolution);
                 
-                showProgress(true, { progress: 95, phase: 'Preparing download' });
+                showProgress(true, 95, 'Preparing download...');
                 
+                // Download file
                 downloadSTL(stlContent, resolution);
                 
-                showProgress(true, { progress: 100, phase: 'Complete!' });
+                showProgress(true, 100, 'Complete!');
                 
                 showStatus(
-                    `✅ Model generated! ${data.metadata?.points || 'Unknown'} points processed.`,
+                    `✅ Model generated successfully! ${elevationData.length} points processed in browser.`,
                     'success'
                 );
 
@@ -576,24 +533,14 @@
                 showProgress(false);
                 showStatus('Error: ' + error.message, 'error');
             } finally {
-                currentRequestId = null;
+                isProcessing = false;
                 generateBtn.disabled = false;
                 generateBtn.textContent = '🚀 Generate 3D Model';
                 checkGenerateButton();
             }
         }
 
-        function cancelRequest() {
-            if (currentRequestId) {
-                currentRequestId = null;
-                showProgress(false);
-                showStatus('Request cancelled.', 'warning');
-                checkGenerateButton();
-            }
-        }
-
-        function generateSTL(data) {
-            const { elevationData, resolution } = data;
+        function generateSTL(elevationData, resolution) {
             const exaggeration = parseFloat(document.getElementById('exaggeration').value);
             const baseHeight = parseFloat(document.getElementById('baseHeight').value);
             const modelSize = parseFloat(document.getElementById('modelSize').value);
@@ -624,7 +571,7 @@
             }
 
             // Generate STL
-            let stl = 'solid terrain\n';
+            let stl = 'solid standalone_terrain\n';
             const step = modelSize / resolution;
             
             // Surface triangles
@@ -645,7 +592,7 @@
             stl += generateTriangle([0, 0, 0], [modelSize, 0, 0], [0, modelSize, 0]);
             stl += generateTriangle([modelSize, 0, 0], [modelSize, modelSize, 0], [0, modelSize, 0]);
             
-            stl += 'endsolid terrain\n';
+            stl += 'endsolid standalone_terrain\n';
             return stl;
         }
 
@@ -681,7 +628,7 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `terrain_${resolution}x${resolution}_${Date.now()}.stl`;
+            a.download = `standalone_terrain_${resolution}x${resolution}_${Date.now()}.stl`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
