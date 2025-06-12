@@ -59,33 +59,27 @@ app.get('/health', (req, res) => {
     });
 });
 
-// Endpoint to provide API key to frontend
+// Endpoint to provide API key to frontend (if server has one)
 app.get('/api/config', (req, res) => {
-    if (!GOOGLE_MAPS_API_KEY) {
-        return res.status(500).json({ 
-            error: 'Google Maps API key not configured on server' 
-        });
-    }
-    
     res.json({
-        googleMapsApiKey: GOOGLE_MAPS_API_KEY,
-        serverConfigured: true
+        googleMapsApiKey: GOOGLE_MAPS_API_KEY || null,
+        serverConfigured: !!GOOGLE_MAPS_API_KEY
     });
 });
 
-// Endpoint to get elevation data with server-side API key
+// Endpoint to get elevation data - FIXED to use API key from request
 app.post('/api/elevation', rateLimit, async (req, res) => {
     const startTime = Date.now();
     
     try {
-        const { bounds, resolution } = req.body;
+        const { bounds, resolution, apiKey } = req.body;
         
-        // Use server-side API key
-        const apiKey = GOOGLE_MAPS_API_KEY;
+        // Use API key from request first, fallback to server environment variable
+        const finalApiKey = apiKey || GOOGLE_MAPS_API_KEY;
         
         // Validation
-        if (!apiKey) {
-            return res.status(500).json({ error: 'Google Maps API key not configured on server' });
+        if (!finalApiKey) {
+            return res.status(400).json({ error: 'Google Maps API key is required' });
         }
         
         if (!bounds || !bounds.north || !bounds.south || !bounds.east || !bounds.west) {
@@ -146,7 +140,7 @@ app.post('/api/elevation', rateLimit, async (req, res) => {
                 const response = await axios.get('https://maps.googleapis.com/maps/api/elevation/json', {
                     params: {
                         locations: locationString,
-                        key: apiKey
+                        key: finalApiKey  // Use the API key from request or environment
                     },
                     timeout: 30000 // 30 second timeout
                 });
