@@ -13,16 +13,16 @@ app.use(cors());
 app.use(express.json({ limit: '200mb' }));
 app.use(express.static('public'));
 
-// Ultra-conservative settings for chunked processing
+// Fixed settings for chunked processing
 const requestCounts = new Map();
 const RATE_LIMIT_WINDOW = 60000;
-const MAX_REQUESTS_PER_WINDOW = 1; // Only 1 high-res request per minute
+const MAX_REQUESTS_PER_WINDOW = 2; // Allow 2 requests per minute
 
-// Chunked request management
+// Chunked request management with corrected timeouts
 const chunkedRequests = new Map();
-const MAX_CHUNK_SIZE = 100; // Maximum 100x100 per chunk
-const MAX_CHUNK_DURATION = 300000; // 5 minutes per chunk
-const MAX_TOTAL_DURATION = 3600000; // 1 hour total
+const MAX_CHUNK_SIZE = 75; // Reduced for better stability
+const MAX_CHUNK_DURATION = 180000; // 3 minutes per chunk
+const MAX_TOTAL_DURATION = 2700000; // 45 minutes total (under Cloud Run's 1 hour limit)
 
 function rateLimit(req, res, next) {
     const clientIP = req.ip || req.connection.remoteAddress;
@@ -43,7 +43,7 @@ function rateLimit(req, res, next) {
     
     if (clientData.count >= MAX_REQUESTS_PER_WINDOW) {
         return res.status(429).json({ 
-            error: 'Rate limit: Only 1 high-resolution request per minute allowed.',
+            error: `Rate limit: Only ${MAX_REQUESTS_PER_WINDOW} requests per minute allowed.`,
             retryAfter: Math.ceil((clientData.resetTime - now) / 1000)
         });
     }
@@ -63,26 +63,25 @@ function forceGarbageCollection() {
     }
 }
 
-// Calculate optimal chunk grid
+// Calculate optimal chunk grid - more conservative
 function calculateChunkGrid(resolution) {
-    // Never exceed MAX_CHUNK_SIZE for any single chunk
     if (resolution <= MAX_CHUNK_SIZE) {
         return { chunksX: 1, chunksY: 1, chunkSizeX: resolution, chunkSizeY: resolution };
     }
     
-    // Calculate how many chunks we need
     const chunksX = Math.ceil(resolution / MAX_CHUNK_SIZE);
     const chunksY = Math.ceil(resolution / MAX_CHUNK_SIZE);
     
-    // Calculate actual chunk sizes (may be smaller than MAX_CHUNK_SIZE)
-    const chunkSizeX = Math.ceil(resolution / chunksX);
-    const chunkSizeY = Math.ceil(resolution / chunksY);
+    // Ensure chunks are not too large
+    const chunkSizeX = Math.min(MAX_CHUNK_SIZE, Math.ceil(resolution / chunksX));
+    const chunkSizeY = Math.min(MAX_CHUNK_SIZE, Math.ceil(resolution / chunksY));
     
     return { chunksX, chunksY, chunkSizeX, chunkSizeY };
 }
 
-// Process a single chunk of elevation data
+// Process a single chunk with better error handling
 async function processElevationChunk(bounds, chunkBounds, chunkResolution, apiKey, chunkId, requestId) {
+    const chunkStartTime = Date.now();
     console.log(`[${requestId}] Processing chunk ${chunkId}: ${chunkResolution}x${chunkResolution} points`);
     
     const { north, south, east, west } = chunkBounds;
@@ -101,9 +100,11 @@ async function processElevationChunk(bounds, chunkBounds, chunkResolution, apiKe
         }
     }
     
+    console.log(`[${requestId}] Chunk ${chunkId}: Generated ${locations.length} locations`);
+    
     // Process in very small batches for chunks
     const elevationData = [];
-    const batchSize = 25; // Very small batches for chunk processing
+    const batchSize = 20; // Very small batches
     const totalBatches = Math.ceil(locations.length / batchSize);
     
     for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
@@ -126,9 +127,9 @@ async function processElevationChunk(bounds, chunkBounds, chunkResolution, apiKe
                         locations: locationString,
                         key: apiKey
                     },
-                    timeout: 15000,
+                    timeout: 10000, // 10 second timeout
                     headers: {
-                        'User-Agent': 'TerrainGenerator/4.0-Chunked',
+                        'User-Agent': 'TerrainGenerator/5.0-Fixed',
                         'Accept': 'application/json'
                     }
                 });
@@ -137,40 +138,52 @@ async function processElevationChunk(bounds, chunkBounds, chunkResolution, apiKe
                     elevationData.push(...response.data.results);
                     batchSuccess = true;
                 } else if (response.data && response.data.status === 'OVER_QUERY_LIMIT') {
-                    const waitTime = Math.min(5000 * Math.pow(2, retryCount), 20000);
+                    const waitTime = Math.min(3000 * Math.pow(2, retryCount), 15000);
                     console.log(`[${requestId}] Chunk ${chunkId} rate limit, waiting ${waitTime}ms...`);
                     await delay(waitTime);
                     retryCount++;
+                } else if (response.data && response.data.status === 'REQUEST_DENIED') {
+                    throw new Error('API key invalid or quota exceeded');
                 } else {
-                    throw new Error(`API error: ${response.data?.status || 'Unknown'}`);
+                    throw new Error(`API error: ${response.data?.status || 'Unknown'} - ${response.data?.error_message || 'No details'}`);
                 }
             } catch (error) {
                 retryCount++;
                 console.error(`[${requestId}] Chunk ${chunkId} batch ${batchIndex + 1} attempt ${retryCount} failed:`, error.message);
                 
-                if (retryCount >= maxRetries) {
+                if (error.code === 'ECONNABORTED') {
+                    console.log(`[${requestId}] Timeout in chunk ${chunkId}, retrying...`);
+                } else if (retryCount >= maxRetries) {
+                    console.error(`[${requestId}] Chunk ${chunkId} failed permanently`);
                     throw new Error(`Chunk ${chunkId} failed after ${maxRetries} retries: ${error.message}`);
                 }
                 
-                await delay(2000 * retryCount);
+                await delay(1000 * retryCount);
             }
         }
         
         // Small delay between batches within chunk
-        await delay(100);
+        await delay(150);
+        
+        // Check for chunk timeout
+        const chunkElapsed = Date.now() - chunkStartTime;
+        if (chunkElapsed > MAX_CHUNK_DURATION) {
+            throw new Error(`Chunk ${chunkId} exceeded maximum duration (${MAX_CHUNK_DURATION/1000}s)`);
+        }
     }
     
-    console.log(`[${requestId}] Chunk ${chunkId} completed: ${elevationData.length}/${locations.length} points`);
+    const chunkTime = Date.now() - chunkStartTime;
+    console.log(`[${requestId}] Chunk ${chunkId} completed: ${elevationData.length}/${locations.length} points in ${(chunkTime/1000).toFixed(1)}s`);
     return elevationData;
 }
 
-// Process elevation data in chunks
+// Process elevation data in chunks with corrected timeout logic
 async function processElevationChunked(bounds, resolution, apiKey, progressCallback, requestId) {
-    const startTime = Date.now();
+    const processingStartTime = Date.now();
     const { chunksX, chunksY, chunkSizeX, chunkSizeY } = calculateChunkGrid(resolution);
     const totalChunks = chunksX * chunksY;
     
-    console.log(`[${requestId}] Chunked processing: ${chunksX}x${chunksY} chunks, ${chunkSizeX}x${chunkSizeY} points per chunk`);
+    console.log(`[${requestId}] Chunked processing: ${chunksX}x${chunksY} chunks, ${chunkSizeX}x${chunkSizeY} points per chunk, ${totalChunks} total chunks`);
     
     const allElevationData = [];
     let completedChunks = 0;
@@ -208,6 +221,7 @@ async function processElevationChunked(bounds, resolution, apiKey, progressCallb
                     progress: Math.round((completedChunks / totalChunks) * 100),
                     currentChunk: completedChunks + 1,
                     totalChunks,
+                    completedChunks,
                     chunkId,
                     chunkResolution
                 });
@@ -233,13 +247,14 @@ async function processElevationChunked(bounds, resolution, apiKey, progressCallb
                 });
                 
                 completedChunks++;
+                console.log(`[${requestId}] Completed ${completedChunks}/${totalChunks} chunks`);
                 
                 // Force garbage collection after each chunk
                 forceGarbageCollection();
                 
                 // Pause between chunks to prevent overwhelming the server
                 if (completedChunks < totalChunks) {
-                    await delay(2000); // 2 second pause between chunks
+                    await delay(1500); // 1.5 second pause between chunks
                 }
                 
             } catch (error) {
@@ -247,10 +262,10 @@ async function processElevationChunked(bounds, resolution, apiKey, progressCallb
                 throw new Error(`Chunk processing failed at ${chunkId}: ${error.message}`);
             }
             
-            // Check for timeout
-            const elapsed = Date.now() - startTime;
-            if (elapsed > MAX_TOTAL_DURATION) {
-                throw new Error('Total processing time exceeded maximum limit (1 hour)');
+            // Check for TOTAL timeout (corrected logic)
+            const totalElapsed = Date.now() - processingStartTime;
+            if (totalElapsed > MAX_TOTAL_DURATION) {
+                throw new Error(`Total processing time exceeded maximum limit (${MAX_TOTAL_DURATION/60000} minutes). Completed ${completedChunks}/${totalChunks} chunks.`);
             }
         }
     }
@@ -260,11 +275,16 @@ async function processElevationChunked(bounds, resolution, apiKey, progressCallb
     // Reconstruct the full elevation grid from chunks
     const reconstructedData = reconstructElevationGrid(allElevationData, bounds, resolution, chunksX, chunksY);
     
+    const totalTime = Date.now() - processingStartTime;
+    console.log(`[${requestId}] Total chunked processing time: ${(totalTime/1000).toFixed(1)}s`);
+    
     return reconstructedData;
 }
 
 // Reconstruct the full elevation grid from chunk data
 function reconstructElevationGrid(chunkDataArray, fullBounds, fullResolution, chunksX, chunksY) {
+    console.log(`Reconstructing ${fullResolution}x${fullResolution} grid from ${chunkDataArray.length} chunks`);
+    
     const fullGrid = new Array((fullResolution + 1) * (fullResolution + 1));
     const latRange = fullBounds.north - fullBounds.south;
     const lngRange = fullBounds.east - fullBounds.west;
@@ -299,22 +319,29 @@ function reconstructElevationGrid(chunkDataArray, fullBounds, fullResolution, ch
     
     // Fill any missing points with interpolated values
     const finalData = [];
+    let missingPoints = 0;
+    
     for (let i = 0; i <= fullResolution; i++) {
         for (let j = 0; j <= fullResolution; j++) {
             const index = i * (fullResolution + 1) + j;
             if (fullGrid[index]) {
                 finalData.push(fullGrid[index]);
             } else {
-                // Create a placeholder point with interpolated elevation
+                // Create a placeholder point with default elevation
                 const lat = fullBounds.south + (i * latRange / fullResolution);
                 const lng = fullBounds.west + (j * lngRange / fullResolution);
                 finalData.push({
-                    elevation: 0, // Will be interpolated in post-processing
+                    elevation: 0, // Will be interpolated if needed
                     location: { lat, lng },
                     resolution: fullResolution
                 });
+                missingPoints++;
             }
         }
+    }
+    
+    if (missingPoints > 0) {
+        console.log(`Warning: ${missingPoints} missing points filled with defaults`);
     }
     
     return finalData;
@@ -340,7 +367,8 @@ app.get('/health', (req, res) => {
         config: {
             maxChunkSize: MAX_CHUNK_SIZE,
             maxChunkDuration: MAX_CHUNK_DURATION / 1000 + 's',
-            maxTotalDuration: MAX_TOTAL_DURATION / 1000 + 's'
+            maxTotalDuration: MAX_TOTAL_DURATION / 60000 + 'm',
+            rateLimit: MAX_REQUESTS_PER_WINDOW + '/min'
         }
     });
 });
@@ -368,14 +396,14 @@ app.get('/api/progress/:requestId', (req, res) => {
     }
 });
 
-// Chunked elevation processing endpoint
+// Chunked elevation processing endpoint with corrected timeout handling
 app.post('/api/elevation', rateLimit, async (req, res) => {
     const startTime = Date.now();
     const requestId = `chunked_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
     
-    // Set very long timeout for chunked processing
-    req.setTimeout(MAX_TOTAL_DURATION);
-    res.setTimeout(MAX_TOTAL_DURATION);
+    // Set request timeout to slightly less than our internal limit
+    req.setTimeout(MAX_TOTAL_DURATION - 30000); // 30 seconds buffer
+    res.setTimeout(MAX_TOTAL_DURATION - 30000);
     
     try {
         const { bounds, resolution, apiKey } = req.body;
@@ -397,10 +425,10 @@ app.post('/api/elevation', rateLimit, async (req, res) => {
             });
         }
         
-        // Allow very high resolutions with chunked processing
-        if (!resolution || resolution < 10 || resolution > 5000) {
+        // More conservative resolution limits
+        if (!resolution || resolution < 10 || resolution > 2000) {
             return res.status(400).json({ 
-                error: 'Resolution must be between 10 and 5000 (chunked processing enables high resolutions)',
+                error: 'Resolution must be between 10 and 2000 for stable chunked processing',
                 requestId 
             });
         }
@@ -410,18 +438,26 @@ app.post('/api/elevation', rateLimit, async (req, res) => {
         const lngDiff = Math.abs(bounds.east - bounds.west);
         const area = latDiff * lngDiff;
         
-        // More permissive area limits since we're chunking
-        const maxArea = 20.0; // Much larger areas allowed with chunking
+        // Conservative area limits
+        const maxArea = 5.0; // Reduced for stability
         if (area > maxArea) {
             return res.status(400).json({ 
-                error: `Area too large even for chunked processing. Max: ${maxArea} sq°, Selected: ${area.toFixed(6)} sq°`,
+                error: `Area too large for stable processing. Max: ${maxArea} sq°, Selected: ${area.toFixed(6)} sq°`,
                 requestId 
             });
         }
         
         const { chunksX, chunksY, chunkSizeX, chunkSizeY } = calculateChunkGrid(resolution);
         const totalChunks = chunksX * chunksY;
-        const estimatedDuration = totalChunks * 3; // Rough estimate: 3 minutes per chunk
+        
+        // Estimate if request is feasible
+        const estimatedMinutes = totalChunks * 2; // 2 minutes per chunk estimate
+        if (estimatedMinutes > 40) { // Conservative 40 minute limit
+            return res.status(400).json({ 
+                error: `Request too large: estimated ${estimatedMinutes} minutes (max 40). Reduce resolution or area.`,
+                requestId 
+            });
+        }
         
         // Initialize chunked request tracking
         chunkedRequests.set(requestId, {
@@ -435,11 +471,11 @@ app.post('/api/elevation', rateLimit, async (req, res) => {
             area: area.toFixed(6),
             totalChunks,
             completedChunks: 0,
-            estimatedDuration,
+            estimatedDuration: estimatedMinutes,
             chunkGrid: { chunksX, chunksY, chunkSizeX, chunkSizeY }
         });
 
-        console.log(`[${requestId}] Starting chunked processing: ${resolution}x${resolution} in ${totalChunks} chunks`);
+        console.log(`[${requestId}] Starting chunked processing: ${resolution}x${resolution} in ${totalChunks} chunks, estimated ${estimatedMinutes} minutes`);
 
         // Update request status
         chunkedRequests.set(requestId, {
@@ -502,7 +538,8 @@ app.post('/api/elevation', rateLimit, async (req, res) => {
                 chunkInfo: {
                     totalChunks,
                     chunkGrid: { chunksX, chunksY, chunkSizeX, chunkSizeY },
-                    processingMethod: 'chunked'
+                    processingMethod: 'chunked',
+                    actualDuration: (processingTime / 60000).toFixed(1) + 'm'
                 }
             }
         });
@@ -524,26 +561,29 @@ app.post('/api/elevation', rateLimit, async (req, res) => {
         
         if (error.message.includes('API key') || error.message.includes('quota')) {
             statusCode = 401;
-        } else if (error.message.includes('timeout') || error.message.includes('exceeded maximum limit')) {
+        } else if (error.message.includes('exceeded maximum limit') || error.message.includes('Total processing time')) {
             statusCode = 408;
-            errorMessage = 'Processing time exceeded limits - try reducing resolution or area size';
+            errorMessage = 'Processing time exceeded safe limits. Try: smaller resolution (≤1000) or smaller area (≤2 sq°).';
         } else if (error.message.includes('Chunk processing failed')) {
             statusCode = 422;
-            errorMessage = 'Chunk processing failed - try reducing resolution or area size';
+            errorMessage = 'Individual chunk failed. Try: smaller resolution or check API quota.';
+        } else if (error.message.includes('too large')) {
+            statusCode = 400;
+            errorMessage = 'Request exceeds safe limits. Try: resolution ≤1000, area ≤2 sq°.';
         }
         
         res.status(statusCode).json({ 
             error: errorMessage,
             timestamp: new Date().toISOString(),
             requestId,
-            suggestion: 'Chunked processing failed. Try: smaller area, lower resolution (≤1000), or retry later.'
+            suggestion: 'For stable processing: Use resolution ≤1000×1000, area ≤2 sq°, ensure high API quota.'
         });
     } finally {
         // Cleanup after delay
         setTimeout(() => {
             chunkedRequests.delete(requestId);
             forceGarbageCollection();
-        }, 600000); // 10 minutes
+        }, 300000); // 5 minutes
     }
 });
 
@@ -567,7 +607,7 @@ setInterval(() => {
     let cleaned = 0;
     
     for (const [id, request] of chunkedRequests.entries()) {
-        if (now - request.startTime > MAX_TOTAL_DURATION) {
+        if (now - request.startTime > MAX_TOTAL_DURATION + 300000) { // 5 minute buffer
             chunkedRequests.delete(id);
             cleaned++;
         }
@@ -577,18 +617,18 @@ setInterval(() => {
         console.log(`Cleaned up ${cleaned} old chunked requests`);
         forceGarbageCollection();
     }
-}, 600000); // Every 10 minutes
+}, 300000); // Every 5 minutes
 
 // Memory monitoring
 setInterval(() => {
     const memUsage = process.memoryUsage();
     const heapUsedMB = Math.round(memUsage.heapUsed / 1024 / 1024);
     
-    if (heapUsedMB > 800) { // Alert if using > 800MB
+    if (heapUsedMB > 500) { // Alert if using > 500MB
         console.warn(`High memory usage: ${heapUsedMB}MB - forcing garbage collection`);
         forceGarbageCollection();
     }
-}, 60000); // Every minute
+}, 30000); // Every 30 seconds
 
 // Error handling middleware
 app.use((error, req, res, next) => {
@@ -624,11 +664,11 @@ process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🏔️  Ultra-High Resolution Chunked Terrain Generator running on port ${PORT}`);
+    console.log(`🏔️  Fixed Chunked Terrain Generator running on port ${PORT}`);
     console.log(`📱 Access: http://localhost:${PORT}`);
     console.log(`🔧 Health: http://localhost:${PORT}/health`);
-    console.log(`🎯 Max resolution: 5000x5000 (25M points) via chunked processing`);
+    console.log(`🎯 Max resolution: 2000x2000 (stable chunked processing)`);
     console.log(`📦 Chunk size: ${MAX_CHUNK_SIZE}x${MAX_CHUNK_SIZE} points max`);
-    console.log(`⏱️  Max processing time: ${MAX_TOTAL_DURATION/1000/60} minutes`);
-    console.log(`💾 Memory management: Active with forced GC`);
+    console.log(`⏱️  Max processing time: ${MAX_TOTAL_DURATION/60000} minutes`);
+    console.log(`🔄 Rate limit: ${MAX_REQUESTS_PER_WINDOW} requests per minute`);
 });

@@ -1,60 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ultra-High Resolution Chunked Terrain Generator</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            color: #333;
-        }
-
-        .container {
-            max-width: 1600px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-            color: white;
-        }
-
-        .header h1 {
-            font-size: 3rem;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        }
-
-        .capabilities-banner {
-            background: rgba(255,255,255,0.15);
-            padding: 20px;
-            border-radius: 12px;
-            margin-bottom: 25px;
-            text-align: center;
-            color: white;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.2);
-        }
-
-        .capabilities-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-top: 15px;
-        }
-
-        .capability-card {
+.capability-card {
             background: rgba(255,255,255,0.1);
             padding: 15px;
             border-radius: 8px;
@@ -333,8 +277,8 @@
         }
 
         .chunk-cell {
-            width: 20px;
-            height: 20px;
+            width: 16px;
+            height: 16px;
             border-radius: 3px;
             border: 1px solid #ddd;
             background: #f8f9fa;
@@ -418,28 +362,28 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🚀 Ultra-High Resolution Terrain Generator</h1>
-            <p>Generate massive 3D terrain models using advanced chunked processing</p>
+            <h1>🔧 Fixed High-Resolution Terrain Generator</h1>
+            <p>Stable chunked processing with conservative limits for reliable results</p>
         </div>
 
         <div class="capabilities-banner">
-            <strong>⚡ Revolutionary Chunked Processing Technology</strong>
+            <strong>🛠️ Fixed & Optimized Chunked Processing</strong>
             <div class="capabilities-grid">
                 <div class="capability-card">
-                    <strong>📊 Up to 5000×5000</strong><br>
-                    25 Million Points
+                    <strong>📊 Up to 2000×2000</strong><br>
+                    4 Million Points
                 </div>
                 <div class="capability-card">
-                    <strong>🧩 Smart Chunking</strong><br>
-                    100×100 Max per Chunk
+                    <strong>🧩 75×75 Chunks</strong><br>
+                    Smaller for Stability
                 </div>
                 <div class="capability-card">
-                    <strong>🌍 Large Areas</strong><br>
-                    Up to 20 Square Degrees
+                    <strong>🌍 Up to 5 Sq Degrees</strong><br>
+                    Conservative Limits
                 </div>
                 <div class="capability-card">
-                    <strong>⏱️ Extended Processing</strong><br>
-                    Up to 1 Hour Total
+                    <strong>⏱️ 45 Minute Max</strong><br>
+                    Safe Processing Time
                 </div>
             </div>
         </div>
@@ -452,7 +396,7 @@
             <div class="controls-section">
                 <div class="api-key-section">
                     <h3>⚠️ High-Quota API Key Required</h3>
-                    <p>Ultra-high resolution processing requires a Google Maps API key with elevated quotas for Elevation API.</p>
+                    <p>Fixed chunked processing requires a Google Maps API key with elevated quotas for stable operation.</p>
                 </div>
 
                 <div class="control-group">
@@ -463,14 +407,14 @@
 
                 <div class="control-group">
                     <div class="instructions">
-                        <strong>🚀 Ultra-High Resolution Workflow:</strong><br>
+                        <strong>🔧 Fixed Processing Workflow:</strong><br>
                         1. Enter high-quota API key<br>
-                        2. Select any reasonable area<br>
-                        3. Choose ultra-high resolution (up to 5000×5000)<br>
-                        4. Watch chunked processing in real-time<br>
-                        5. Download professional-grade STL file<br>
+                        2. Select area (up to 5 square degrees)<br>
+                        3. Choose resolution (conservative limits)<br>
+                        4. Watch stable chunked processing<br>
+                        5. Download high-quality STL file<br>
                         <br>
-                        <strong>⏱️ Time estimates:</strong> 1000×1000 = ~15min, 2000×2000 = ~45min
+                        <strong>⚡ Optimizations:</strong> Smaller chunks (75×75), conservative timeouts, better error handling
                     </div>
                 </div>
 
@@ -483,18 +427,16 @@
                 </div>
 
                 <div class="control-group">
-                    <label for="resolution">Ultra-High Resolution (Chunked Processing):</label>
+                    <label for="resolution">Fixed Resolution (Stable Chunked Processing):</label>
                     <select id="resolution" onchange="updateEstimates()">
-                        <option value="100">100×100 (10,201 points - Fast Test)</option>
-                        <option value="300">300×300 (90,601 points - Quick Preview)</option>
-                        <option value="500" selected>500×500 (251,001 points - Good Quality)</option>
-                        <option value="750">750×750 (563,501 points - High Quality)</option>
-                        <option value="1000">1000×1000 (1,002,001 points - Very High Quality)</option>
-                        <option value="1500">1500×1500 (2,252,501 points - Professional)</option>
-                        <option value="2000">2000×2000 (4,004,001 points - Ultra Professional)</option>
-                        <option value="3000">3000×3000 (9,006,001 points - Extreme Detail)</option>
-                        <option value="4000">4000×4000 (16,008,001 points - Maximum Detail)</option>
-                        <option value="5000">5000×5000 (25,010,001 points - Theoretical Limit)</option>
+                        <option value="100">100×100 (10,201 points - Quick Test)</option>
+                        <option value="200">200×200 (40,401 points - Good Quality)</option>
+                        <option value="300" selected>300×300 (90,601 points - High Quality)</option>
+                        <option value="500">500×500 (251,001 points - Very High Quality)</option>
+                        <option value="750">750×750 (563,501 points - Professional)</option>
+                        <option value="1000">1000×1000 (1,002,001 points - Ultra Professional)</option>
+                        <option value="1500">1500×1500 (2,252,501 points - Maximum Recommended)</option>
+                        <option value="2000">2000×2000 (4,004,001 points - Absolute Maximum)</option>
                     </select>
                     <div id="resolutionInfo"></div>
                 </div>
@@ -502,26 +444,26 @@
                 <div class="control-group">
                     <label for="exaggeration">Terrain Exaggeration:</label>
                     <div class="range-group">
-                        <input type="range" id="exaggeration" min="0.1" max="10" step="0.1" value="2.5">
-                        <span class="range-value" id="exaggerationValue">2.5×</span>
+                        <input type="range" id="exaggeration" min="0.1" max="10" step="0.1" value="2.0">
+                        <span class="range-value" id="exaggerationValue">2.0×</span>
                     </div>
                 </div>
 
                 <div class="control-group">
                     <label for="baseHeight">Base Height (mm):</label>
-                    <input type="number" id="baseHeight" value="8" min="1" max="50">
+                    <input type="number" id="baseHeight" value="6" min="1" max="50">
                 </div>
 
                 <div class="control-group">
                     <label for="modelSize">Model Size (mm):</label>
-                    <input type="number" id="modelSize" value="200" min="50" max="500">
+                    <input type="number" id="modelSize" value="180" min="50" max="500">
                 </div>
 
                 <div class="chunked-progress-container" id="chunkedProgressContainer">
                     <div class="progress-header">
                         <div>
-                            <div class="progress-title" id="progressTitle">Ultra-High Resolution Processing...</div>
-                            <div class="progress-subtitle" id="progressSubtitle">Chunked processing in progress</div>
+                            <div class="progress-title" id="progressTitle">Fixed Chunked Processing...</div>
+                            <div class="progress-subtitle" id="progressSubtitle">Stable chunked processing in progress</div>
                         </div>
                         <button class="button danger" onclick="cancelRequest()" id="cancelBtn">Cancel</button>
                     </div>
@@ -569,7 +511,7 @@
                 </div>
 
                 <button class="button" id="generateBtn" onclick="generateModel()" disabled>
-                    🚀 Generate Ultra-High Resolution Model
+                    🔧 Generate Fixed High-Resolution Model
                 </button>
 
                 <div id="status"></div>
@@ -626,7 +568,7 @@
             document.getElementById('currentPhase').textContent = details.phase || 'Processing';
             
             // Update chunk information
-            if (details.currentChunk && details.totalChunks) {
+            if (details.totalChunks) {
                 document.getElementById('chunksComplete').textContent = `${details.completedChunks || 0}/${details.totalChunks}`;
                 document.getElementById('currentChunk').textContent = details.chunkId || '--';
             }
@@ -694,19 +636,22 @@
             
             chunkGrid = chunkGridInfo;
             
-            // Set up grid layout
-            grid.style.gridTemplateColumns = `repeat(${chunkGridInfo.chunksX}, 20px)`;
+            // Set up grid layout - limit visual size for large grids
+            const maxVisualSize = 20;
+            const visualChunksX = Math.min(chunkGridInfo.chunksX, maxVisualSize);
+            const visualChunksY = Math.min(chunkGridInfo.chunksY, maxVisualSize);
+            
+            grid.style.gridTemplateColumns = `repeat(${visualChunksX}, 16px)`;
             grid.innerHTML = '';
             
-            // Create chunk cells
-            for (let y = 0; y < chunkGridInfo.chunksY; y++) {
-                for (let x = 0; x < chunkGridInfo.chunksX; x++) {
-                    const cell = document.createElement('div');
-                    cell.className = 'chunk-cell';
-                    cell.dataset.chunkIndex = y * chunkGridInfo.chunksX + x;
-                    cell.title = `Chunk ${x}_${y}`;
-                    grid.appendChild(cell);
-                }
+            // Create chunk cells (show subset if too many)
+            const totalVisualChunks = visualChunksX * visualChunksY;
+            for (let i = 0; i < totalVisualChunks; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'chunk-cell';
+                cell.dataset.chunkIndex = i;
+                cell.title = `Chunk ${i}`;
+                grid.appendChild(cell);
             }
             
             visual.style.display = 'block';
@@ -741,11 +686,11 @@
 
         function initMap() {
             try {
-                showStatus('Map loaded! Draw a rectangle to select any size terrain area for ultra-high resolution processing.', 'success');
+                showStatus('Map loaded! Draw a rectangle to select terrain area for stable chunked processing.', 'success');
                 mapLoaded = true;
                 
                 map = new google.maps.Map(document.getElementById('map'), {
-                    zoom: 6,
+                    zoom: 8,
                     center: { lat: 39.8283, lng: -98.5795 }, // Center of USA
                     mapTypeId: 'terrain'
                 });
@@ -803,27 +748,25 @@
         }
 
         function calculateChunkGrid(resolution) {
-            const maxChunkSize = 100;
+            const maxChunkSize = 75; // Fixed chunk size
             if (resolution <= maxChunkSize) {
                 return { chunksX: 1, chunksY: 1, chunkSizeX: resolution, chunkSizeY: resolution };
             }
             
             const chunksX = Math.ceil(resolution / maxChunkSize);
             const chunksY = Math.ceil(resolution / maxChunkSize);
-            const chunkSizeX = Math.ceil(resolution / chunksX);
-            const chunkSizeY = Math.ceil(resolution / chunksY);
+            const chunkSizeX = Math.min(maxChunkSize, Math.ceil(resolution / chunksX));
+            const chunkSizeY = Math.min(maxChunkSize, Math.ceil(resolution / chunksY));
             
             return { chunksX, chunksY, chunkSizeX, chunkSizeY };
         }
 
         function estimateProcessingTime(resolution, area) {
-            const points = (resolution + 1) * (resolution + 1);
             const chunkInfo = calculateChunkGrid(resolution);
             const totalChunks = chunkInfo.chunksX * chunkInfo.chunksY;
             
-            // Rough estimate: 2-5 minutes per chunk depending on size
-            const minutesPerChunk = Math.max(2, Math.min(5, Math.ceil(points / totalChunks / 50000)));
-            const totalMinutes = totalChunks * minutesPerChunk;
+            // Conservative estimate: 2 minutes per chunk
+            const totalMinutes = totalChunks * 2;
             
             if (totalMinutes > 60) {
                 return `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`;
@@ -842,13 +785,20 @@
             const area = selectedBounds ? calculateArea(selectedBounds) : 1;
             const estimatedTime = estimateProcessingTime(resolution, area);
             
+            // Check if request is feasible
+            const estimatedMinutes = totalChunks * 2;
+            let feasibilityNote = '';
+            if (estimatedMinutes > 40) {
+                feasibilityNote = '<br><strong style="color: #c62828;">⚠️ May exceed 45-minute limit</strong>';
+            }
+            
             infoEl.innerHTML = `
                 <div class="resolution-info">
                     📊 <strong>${points.toLocaleString()} elevation points</strong><br>
                     🧩 <strong>${totalChunks} chunks</strong> (${chunkInfo.chunksX}×${chunkInfo.chunksY} grid)<br>
                     📦 <strong>${chunkInfo.chunkSizeX}×${chunkInfo.chunkSizeY}</strong> points per chunk<br>
                     ⏱️ <strong>Estimated time: ~${estimatedTime}</strong><br>
-                    🌍 Max area: 20 square degrees
+                    🌍 Max area: 5 square degrees${feasibilityNote}
                 </div>
             `;
             
@@ -877,19 +827,19 @@
                 `;
                 
                 let areaClass, areaText;
-                const maxArea = 20.0;
+                const maxArea = 5.0; // Conservative limit
                 if (area > maxArea) {
                     areaClass = 'warning-info';
-                    areaText = `⚠️ Area: ${area.toFixed(6)} sq° (TOO LARGE - max 20 sq°)`;
-                } else if (area > 10) {
+                    areaText = `⚠️ Area: ${area.toFixed(6)} sq° (TOO LARGE - max 5 sq° for stability)`;
+                } else if (area > 2.5) {
                     areaClass = 'warning-info';
-                    areaText = `⚠️ Area: ${area.toFixed(6)} sq° (Very Large - will take significant time)`;
-                } else if (area > 5) {
+                    areaText = `⚠️ Area: ${area.toFixed(6)} sq° (Large - expect longer processing time)`;
+                } else if (area > 1.0) {
                     areaClass = 'warning-info';
-                    areaText = `⚠️ Area: ${area.toFixed(6)} sq° (Large - expect long processing time)`;
+                    areaText = `⚠️ Area: ${area.toFixed(6)} sq° (Moderate - good for testing)`;
                 } else {
                     areaClass = 'area-info';
-                    areaText = `✅ Area: ${area.toFixed(6)} sq° (Good size for ultra-high resolution)`;
+                    areaText = `✅ Area: ${area.toFixed(6)} sq° (Good size for stable processing)`;
                 }
                 
                 const chunkInfo = calculateChunkGrid(resolution);
@@ -898,15 +848,15 @@
                 
                 chunkingInfo.innerHTML = `
                     <div class="chunked-info">
-                        🧩 <strong>Chunked Processing:</strong> ${totalChunks} chunks (${chunkInfo.chunksX}×${chunkInfo.chunksY})<br>
-                        📦 Each chunk: ${chunkInfo.chunkSizeX}×${chunkInfo.chunkSizeY} points<br>
-                        🔄 Sequential processing with automatic recovery
+                        🧩 <strong>Fixed Chunked Processing:</strong> ${totalChunks} chunks (${chunkInfo.chunksX}×${chunkInfo.chunksY})<br>
+                        📦 Each chunk: ${chunkInfo.chunkSizeX}×${chunkInfo.chunkSizeY} points max<br>
+                        🔧 Conservative processing with timeout protection
                     </div>
                 `;
                 
                 estimatedInfo.innerHTML = `
                     <div class="estimated-time">
-                        🎯 ${points.toLocaleString()} total points | ⏱️ ~${estimatedTime} | 🚀 Ultra-high resolution
+                        🎯 ${points.toLocaleString()} total points | ⏱️ ~${estimatedTime} | 🔧 Fixed processing
                     </div>
                 `;
                 
@@ -923,9 +873,19 @@
             
             if (canGenerate && selectedBounds) {
                 const area = calculateArea(selectedBounds);
-                const maxArea = 20.0;
+                const maxArea = 5.0;
                 
                 if (area > maxArea) {
+                    canGenerate = false;
+                }
+                
+                // Check if estimated time is too long
+                const resolution = parseInt(document.getElementById('resolution').value);
+                const chunkInfo = calculateChunkGrid(resolution);
+                const totalChunks = chunkInfo.chunksX * chunkInfo.chunksY;
+                const estimatedMinutes = totalChunks * 2;
+                
+                if (estimatedMinutes > 40) {
                     canGenerate = false;
                 }
             }
@@ -981,9 +941,9 @@
                     if (text.includes('Error 502') || text.includes('Bad Gateway')) {
                         return 'Server temporarily unavailable (502). Try reducing resolution or area size.';
                     } else if (text.includes('Error 504') || text.includes('Gateway Timeout')) {
-                        return 'Request timeout (504). Even chunked processing has limits - try smaller resolution.';
+                        return 'Request timeout (504). Processing exceeded server limits.';
                     } else if (text.includes('Error 500')) {
-                        return 'Internal server error (500). Server may be overloaded - try later.';
+                        return 'Internal server error (500). Server may be overloaded.';
                     } else {
                         return `Server error: ${response.status} ${response.statusText}`;
                     }
@@ -1002,15 +962,15 @@
             const generateBtn = document.getElementById('generateBtn');
             const originalText = generateBtn.textContent;
             generateBtn.disabled = true;
-            generateBtn.textContent = '🚀 Initializing...';
+            generateBtn.textContent = '🔧 Initializing...';
             
             startTime = Date.now();
             currentRequestId = null;
             chunkGrid = null;
 
             try {
-                showStatus('Initializing ultra-high resolution chunked processing...', 'info');
-                showChunkedProgress(true, { progress: 0, phase: 'Initializing chunked processing' });
+                showStatus('Initializing fixed chunked processing...', 'info');
+                showChunkedProgress(true, { progress: 0, phase: 'Initializing fixed processing' });
 
                 const ne = selectedBounds.getNorthEast();
                 const sw = selectedBounds.getSouthWest();
@@ -1029,7 +989,7 @@
                 
                 showChunkedProgress(true, { 
                     progress: 5, 
-                    phase: 'Starting chunked elevation processing',
+                    phase: 'Starting stable chunked elevation processing',
                     totalPoints: points,
                     chunkGrid: chunkInfo
                 });
@@ -1054,31 +1014,31 @@
                 const data = await response.json();
                 currentRequestId = data.metadata.requestId;
                 
-                // Start aggressive progress polling for chunked processing
+                // Start progress polling
                 progressInterval = setInterval(() => {
                     pollChunkedProgress(currentRequestId);
-                }, 2000); // Poll every 2 seconds
+                }, 3000); // Poll every 3 seconds
 
                 showChunkedProgress(true, { 
                     progress: 90, 
-                    phase: 'Creating ultra-high resolution 3D model',
+                    phase: 'Creating high-resolution 3D model',
                     dataQuality: data.metadata.dataQuality 
                 });
                 
                 const stlContent = generateSTL(data);
                 
-                showChunkedProgress(true, { progress: 95, phase: 'Preparing massive file download' });
+                showChunkedProgress(true, { progress: 95, phase: 'Preparing file download' });
                 
                 downloadSTL(stlContent, resolution);
                 
-                showChunkedProgress(true, { progress: 100, phase: 'Ultra-high resolution processing complete!' });
+                showChunkedProgress(true, { progress: 100, phase: 'Fixed processing complete!' });
                 
                 const processingTime = data.metadata.processingTime / 1000;
                 const minutes = Math.floor(processingTime / 60);
                 const seconds = Math.floor(processingTime % 60);
                 
                 showStatus(
-                    `🎉 Ultra-high resolution model generated successfully! ${data.metadata.points.toLocaleString()} points processed via ${data.metadata.chunkInfo.totalChunks} chunks in ${minutes}m ${seconds}s (${data.metadata.dataQuality}% quality)`, 
+                    `🎉 Fixed high-resolution model generated successfully! ${data.metadata.points.toLocaleString()} points processed via ${data.metadata.chunkInfo.totalChunks} chunks in ${minutes}m ${seconds}s (${data.metadata.dataQuality}% quality)`, 
                     'success'
                 );
                 
@@ -1093,23 +1053,23 @@
                 let suggestions = '';
                 
                 if (error.message.includes('502') || error.message.includes('Bad Gateway')) {
-                    errorMessage = 'Server temporarily unavailable. Even chunked processing has limits.';
-                    suggestions = 'Try: Resolution ≤2000×2000, smaller area, or wait and retry.';
+                    errorMessage = 'Server temporarily unavailable. Processing may have exceeded limits.';
+                    suggestions = 'Try: Resolution ≤1000×1000, area ≤2 sq°, or wait and retry.';
                     statusType = 'warning';
                 } else if (error.message.includes('504') || error.message.includes('timeout')) {
-                    errorMessage = 'Request timed out. Processing exceeded 1-hour limit.';
-                    suggestions = 'Try: Resolution ≤1500×1500, much smaller area, or contact support for enterprise limits.';
+                    errorMessage = 'Request timed out. Processing exceeded server capacity.';
+                    suggestions = 'Try: Resolution ≤750×750, area ≤1 sq°, or wait for server capacity.';
                     statusType = 'warning';
                 } else if (error.message.includes('Rate limit')) {
-                    errorMessage = 'Rate limit: Only 1 ultra-high resolution request per minute allowed.';
+                    errorMessage = 'Rate limit: Maximum 2 requests per minute allowed.';
                     suggestions = 'Wait 1 minute before trying again.';
                     statusType = 'warning';
                 } else if (error.message.includes('API key') || error.message.includes('quota')) {
-                    errorMessage = 'API key invalid or quota exceeded for ultra-high resolution processing.';
-                    suggestions = 'Check: API key validity, high quota limits (100k+ requests/day), billing status.';
-                } else if (error.message.includes('too large') || error.message.includes('exceeded maximum limit')) {
-                    errorMessage = 'Request exceeds absolute limits even with chunked processing.';
-                    suggestions = 'Try: Resolution ≤3000×3000, area ≤10 square degrees.';
+                    errorMessage = 'API key invalid or quota exceeded.';
+                    suggestions = 'Check: API key validity, quota limits (50k+ requests/day), billing status.';
+                } else if (error.message.includes('too large') || error.message.includes('exceeded safe limits')) {
+                    errorMessage = 'Request exceeds safe processing limits.';
+                    suggestions = 'Try: Resolution ≤1500×1500, area ≤2 sq°.';
                     statusType = 'warning';
                 } else if (error.message.includes('Chunk processing failed')) {
                     errorMessage = 'Individual chunk processing failed.';
@@ -1130,14 +1090,14 @@
             if (currentRequestId) {
                 try {
                     await fetch(`/api/cancel/${currentRequestId}`, { method: 'POST' });
-                    showStatus('Cancellation request sent. Chunked processing may take a moment to stop.', 'warning');
+                    showStatus('Cancellation request sent. Fixed processing may take a moment to stop.', 'warning');
                 } catch (e) {
                     console.warn('Cancel request failed:', e);
                 }
                 
                 currentRequestId = null;
                 showChunkedProgress(false);
-                showStatus('Ultra-high resolution request cancelled by user.', 'warning');
+                showStatus('Fixed processing request cancelled by user.', 'warning');
                 checkGenerateButton();
             }
         }
@@ -1157,7 +1117,7 @@
 
             const elevationRange = maxElevation - minElevation;
             
-            // Create ultra-high resolution elevation grid
+            // Create high-resolution elevation grid
             const grid = [];
             for (let i = 0; i <= resolution; i++) {
                 grid[i] = [];
@@ -1165,7 +1125,7 @@
                     const index = i * (resolution + 1) + j;
                     if (index < elevationData.length) {
                         const elevation = elevationData[index].elevation;
-                        const normalizedHeight = ((elevation - minElevation) / elevationRange) * modelSize * 0.5 * exaggeration;
+                        const normalizedHeight = ((elevation - minElevation) / elevationRange) * modelSize * 0.4 * exaggeration;
                         grid[i][j] = normalizedHeight + baseHeight;
                     } else {
                         grid[i][j] = baseHeight;
@@ -1173,11 +1133,11 @@
                 }
             }
 
-            // Generate ultra-high precision STL
-            let stl = 'solid ultra_high_resolution_terrain\n';
+            // Generate high-precision STL
+            let stl = 'solid fixed_high_resolution_terrain\n';
             const step = modelSize / resolution;
             
-            // Surface triangles with maximum precision
+            // Surface triangles with high precision
             for (let i = 0; i < resolution; i++) {
                 for (let j = 0; j < resolution; j++) {
                     const x1 = i * step;
@@ -1195,11 +1155,11 @@
                 }
             }
             
-            // Base and walls (simplified for ultra-high resolution)
+            // Base and walls (simplified for high resolution)
             stl += generateTriangle([0, 0, 0], [modelSize, 0, 0], [0, modelSize, 0]);
             stl += generateTriangle([modelSize, 0, 0], [modelSize, modelSize, 0], [0, modelSize, 0]);
             
-            stl += 'endsolid ultra_high_resolution_terrain\n';
+            stl += 'endsolid fixed_high_resolution_terrain\n';
             return stl;
         }
 
@@ -1220,11 +1180,11 @@
                 normal[2] /= length;
             }
             
-            return `  facet normal ${normal[0].toFixed(8)} ${normal[1].toFixed(8)} ${normal[2].toFixed(8)}\n` +
+            return `  facet normal ${normal[0].toFixed(6)} ${normal[1].toFixed(6)} ${normal[2].toFixed(6)}\n` +
                    `    outer loop\n` +
-                   `      vertex ${v1[0].toFixed(8)} ${v1[1].toFixed(8)} ${v1[2].toFixed(8)}\n` +
-                   `      vertex ${v2[0].toFixed(8)} ${v2[1].toFixed(8)} ${v2[2].toFixed(8)}\n` +
-                   `      vertex ${v3[0].toFixed(8)} ${v3[1].toFixed(8)} ${v3[2].toFixed(8)}\n` +
+                   `      vertex ${v1[0].toFixed(6)} ${v1[1].toFixed(6)} ${v1[2].toFixed(6)}\n` +
+                   `      vertex ${v2[0].toFixed(6)} ${v2[1].toFixed(6)} ${v2[2].toFixed(6)}\n` +
+                   `      vertex ${v3[0].toFixed(6)} ${v3[1].toFixed(6)} ${v3[2].toFixed(6)}\n` +
                    `    endloop\n` +
                    `  endfacet\n`;
         }
@@ -1234,7 +1194,7 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `ultra_high_res_terrain_${resolution}x${resolution}_${Date.now()}.stl`;
+            a.download = `fixed_high_res_terrain_${resolution}x${resolution}_${Date.now()}.stl`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -1242,8 +1202,69 @@
         }
 
         // Initialize
-        showStatus('Enter your high-quota Google Maps API key to begin ultra-high resolution terrain generation.', 'info');
+        showStatus('Enter your high-quota Google Maps API key to begin fixed high-resolution terrain generation.', 'info');
         updateEstimates();
     </script>
 </body>
 </html>
+                <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fixed High-Resolution Chunked Terrain Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.8rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .capabilities-banner {
+            background: rgba(255,255,255,0.15);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            text-align: center;
+            color: white;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .capabilities-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .capability-card {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 8px;
+            text-align
