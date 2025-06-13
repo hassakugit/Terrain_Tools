@@ -294,8 +294,9 @@
                 
                 <div id="opentopoControls" style="display: none;">
                     <div class="info-box">
-                        ✅ OpenTopography SRTM data - Pre-configured access, no API key needed
+                        ✅ OpenTopography SRTM data - Enter API key for higher limits
                     </div>
+                    <input type="password" id="opentopoApiKey" class="api-input" placeholder="Enter OpenTopography API key (optional - higher limits)">
                     <button class="load-btn" onclick="loadOpenTopoMap()">Load OpenTopography Map</button>
                 </div>
                 
@@ -335,6 +336,8 @@
                         <option value="200">200×200 (40,401 points)</option>
                         <option value="500">500×500 (251,001 points)</option>
                         <option value="1000">1000×1000 (1M points)</option>
+                        <option value="1500">1500×1500 (2.25M points) - Requires API</option>
+                        <option value="2000">2000×2000 (4M points) - Requires API</option>
                     </select>
                 </div>
 
@@ -389,8 +392,9 @@
             },
             opentopo: {
                 name: 'OpenTopography.org (SRTM)',
-                description: 'SRTM elevation data from NASA. Pre-configured access, excellent for terrain modeling.',
-                maxPoints: 25000,
+                description: 'SRTM elevation data from NASA. With API key: unlimited points. Without: 25K limit.',
+                maxPoints: 25000, // Default without API key
+                maxPointsWithKey: 5000000, // 5M points with API key
                 coverage: 'Global'
             },
             usgs: {
@@ -452,7 +456,7 @@
                     
                 case 'opentopo':
                     display.className = 'source-display source-opentopo';
-                    display.textContent = '🆓 OpenTopography SRTM - Pre-configured Access';
+                    display.textContent = '🔑 OpenTopography SRTM - API Key for Higher Limits';
                     opentopoControls.style.display = 'block';
                     break;
                     
@@ -466,12 +470,26 @@
 
         function updateSourceInfo() {
             const source = sources[currentDataSource];
-            document.getElementById('sourceInfo').innerHTML = `
-                <strong>📊 ${source.name}</strong><br>
-                ${source.description}<br>
-                <strong>Max Points:</strong> ${source.maxPoints.toLocaleString()} | 
-                <strong>Coverage:</strong> ${source.coverage}
-            `;
+            
+            if (currentDataSource === 'opentopo') {
+                const apiKey = document.getElementById('opentopoApiKey') ? document.getElementById('opentopoApiKey').value.trim() : '';
+                const maxPoints = apiKey ? source.maxPointsWithKey : source.maxPoints;
+                const limitText = apiKey ? '5M (with API key)' : '25K (without API key)';
+                
+                document.getElementById('sourceInfo').innerHTML = `
+                    <strong>📊 ${source.name}</strong><br>
+                    ${source.description}<br>
+                    <strong>Max Points:</strong> ${limitText} | 
+                    <strong>Coverage:</strong> ${source.coverage}
+                `;
+            } else {
+                document.getElementById('sourceInfo').innerHTML = `
+                    <strong>📊 ${source.name}</strong><br>
+                    ${source.description}<br>
+                    <strong>Max Points:</strong> ${source.maxPoints.toLocaleString()} | 
+                    <strong>Coverage:</strong> ${source.coverage}
+                `;
+            }
         }
 
         function resetMap() {
@@ -513,8 +531,14 @@
         }
 
         function loadOpenTopoMap() {
-            showStatus('Loading OpenTopography map...', 'info');
-            loadMapWithLeaflet('OpenTopography SRTM');
+            const apiKey = document.getElementById('opentopoApiKey').value.trim();
+            const limitText = apiKey ? 'with API key (5M point limit)' : 'without API key (25K limit)';
+            
+            showStatus(`Loading OpenTopography ${limitText}...`, 'info');
+            loadMapWithLeaflet(`OpenTopography SRTM ${limitText}`);
+            
+            // Update source info to show current limits
+            updateSourceInfo();
         }
 
         function loadOtherMap() {
@@ -661,8 +685,18 @@
             const source = sources[currentDataSource];
             const totalPoints = (resolution + 1) * (resolution + 1);
             
-            if (totalPoints > source.maxPoints) {
-                showStatus(`❌ Resolution too high for ${source.name}. Max ${source.maxPoints} points, requested ${totalPoints}.`, 'error');
+            // Check limits based on API key for OpenTopography
+            let maxPoints = source.maxPoints;
+            if (currentDataSource === 'opentopo') {
+                const apiKey = document.getElementById('opentopoApiKey').value.trim();
+                maxPoints = apiKey ? source.maxPointsWithKey : source.maxPoints;
+            }
+            
+            if (totalPoints > maxPoints) {
+                const limitText = currentDataSource === 'opentopo' && document.getElementById('opentopoApiKey').value.trim() 
+                    ? '5M (with API key)' 
+                    : maxPoints.toLocaleString();
+                showStatus(`❌ Resolution too high for ${source.name}. Max ${limitText} points, requested ${totalPoints.toLocaleString()}.`, 'error');
                 return;
             }
 
