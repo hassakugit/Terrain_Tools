@@ -791,40 +791,69 @@
         }
 
         function generateElevationForSource(lat, lng) {
+            // Create realistic terrain based on actual geographic patterns
+            // Remove random noise and use deterministic terrain generation
+            
             const baseElevation = 50;
+            
+            // Distance from center point (Osaka: 34.6937, 135.5023)
+            const centerLat = 34.6937;
+            const centerLng = 135.5023;
+            const distanceFromCenter = Math.sqrt(
+                Math.pow((lat - centerLat) * 111, 2) + // Convert to km
+                Math.pow((lng - centerLng) * 111, 2)
+            );
             
             switch (currentDataSource) {
                 case 'google':
-                    const google = Math.sin((lat - 34.6937) * 0.001 * 500) * Math.cos((lng - 135.5023) * 0.001 * 500) * 200;
-                    const googleLocal = Math.sin(lat * 0.01 * 200) * Math.cos(lng * 0.01 * 200) * 100;
-                    const googleNoise = (Math.random() - 0.5) * 10;
-                    return Math.max(0, Math.min(1000, baseElevation + google + googleLocal + googleNoise));
+                    // Google-style smooth, realistic terrain
+                    const googleLarge = Math.sin(lat * 0.01) * Math.cos(lng * 0.01) * 200;
+                    const googleMedium = Math.sin(lat * 0.1) * Math.cos(lng * 0.1) * 100;
+                    const googleSmall = Math.sin(lat * 1.0) * Math.cos(lng * 1.0) * 30;
+                    // Remove random noise for clean terrain
+                    return Math.max(0, Math.min(800, baseElevation + googleLarge + googleMedium + googleSmall));
                     
                 case 'opentopo':
-                    // OpenTopography with enhanced SRTM characteristics
-                    const srtm = Math.sin((lat - 34.6937) * 0.001 * 400) * Math.cos((lng - 135.5023) * 0.001 * 400) * 250;
-                    const srtmRegional = Math.sin(lat * 0.01 * 150) * Math.cos(lng * 0.01 * 150) * 120;
-                    const srtmDetail = Math.sin(lat * 0.1 * 80) * Math.cos(lng * 0.1 * 80) * 60;
-                    const srtmNoise = (Math.random() - 0.5) * 18;
-                    const radarArtifacts = Math.sin(lat * 20) * Math.cos(lng * 20) * 5;
-                    return Math.max(-10, Math.min(800, baseElevation + srtm + srtmRegional + srtmDetail + srtmNoise + radarArtifacts));
+                    // SRTM-style terrain with geological realism
+                    const srtmContinental = Math.sin(lat * 0.005) * Math.cos(lng * 0.005) * 300;
+                    const srtmRegional = Math.sin(lat * 0.05) * Math.cos(lng * 0.05) * 150;
+                    const srtmLocal = Math.sin(lat * 0.5) * Math.cos(lng * 0.5) * 75;
+                    
+                    // Add distance-based elevation (mountains further from coast)
+                    const mountainEffect = Math.min(distanceFromCenter * 2, 100);
+                    
+                    // Very minimal, controlled variation instead of random noise
+                    const controlledVariation = Math.sin(lat * 10) * Math.cos(lng * 10) * 5;
+                    
+                    return Math.max(-10, Math.min(900, baseElevation + srtmContinental + srtmRegional + srtmLocal + mountainEffect + controlledVariation));
                     
                 case 'usgs':
-                    const usgs = Math.sin(lat * 0.001 * 300) * Math.cos(lng * 0.001 * 300) * 300;
-                    const usgsDetailed = Math.sin(lat * 0.1 * 100) * Math.cos(lng * 0.1 * 100) * 80;
-                    const usgsNoise = (Math.random() - 0.5) * 3;
-                    return Math.max(0, Math.min(1200, baseElevation + usgs + usgsDetailed + usgsNoise));
+                    // USGS ultra-high precision terrain
+                    const usgsBase = Math.sin(lat * 0.02) * Math.cos(lng * 0.02) * 250;
+                    const usgsDetailed = Math.sin(lat * 0.2) * Math.cos(lng * 0.2) * 100;
+                    const usgsFine = Math.sin(lat * 2.0) * Math.cos(lng * 2.0) * 40;
+                    
+                    // Geological layering effect
+                    const geologicalLayers = Math.abs(Math.sin(lat * 0.1)) * 80;
+                    
+                    return Math.max(0, Math.min(1000, baseElevation + usgsBase + usgsDetailed + usgsFine + geologicalLayers));
                     
                 case 'openelev':
-                    const openelev = Math.sin((lat - 34.6937) * 0.001 * 200) * Math.cos((lng - 135.5023) * 0.001 * 200) * 200;
-                    const openelevNoise = (Math.random() - 0.5) * 30;
-                    return Math.max(-50, Math.min(900, baseElevation + openelev + openelevNoise));
+                    // Open-Elevation coarser but smooth terrain
+                    const openelevLarge = Math.sin(lat * 0.008) * Math.cos(lng * 0.008) * 180;
+                    const openelevMedium = Math.sin(lat * 0.08) * Math.cos(lng * 0.08) * 90;
+                    
+                    // Smoother, less detailed than other sources
+                    return Math.max(-20, Math.min(700, baseElevation + openelevLarge + openelevMedium));
                     
                 case 'mapbox':
-                    const mapbox = Math.sin((lat - 34.6937) * 0.001 * 350) * Math.cos((lng - 135.5023) * 0.001 * 350) * 220;
-                    const mapboxSmooth = Math.sin(lat * 0.01 * 120) * Math.cos(lng * 0.01 * 120) * 90;
-                    const mapboxNoise = (Math.random() - 0.5) * 15;
-                    return Math.max(0, Math.min(1000, baseElevation + mapbox + mapboxSmooth + mapboxNoise));
+                    // Mapbox smooth interpolated terrain
+                    const mapboxSmooth1 = Math.sin(lat * 0.01) * Math.cos(lng * 0.01) * 220;
+                    const mapboxSmooth2 = Math.sin(lat * 0.1) * Math.cos(lng * 0.1) * 110;
+                    const mapboxSmooth3 = Math.sin(lat * 1.0) * Math.cos(lng * 1.0) * 35;
+                    
+                    // Very smooth interpolation
+                    return Math.max(0, Math.min(850, baseElevation + mapboxSmooth1 + mapboxSmooth2 + mapboxSmooth3));
                     
                 default:
                     return baseElevation;
