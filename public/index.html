@@ -3,20 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<<<<<<< HEAD
     <title>Multi-Source Terrain Generator</title>
-=======
-    <title>Fixed Ultra HD Terrain Generator</title>
->>>>>>> parent of 62f4b13 (Update index.html)
     <style>
         body {
             font-family: Arial, sans-serif;
             margin: 0;
-<<<<<<< HEAD
             padding: 0;
-=======
-            padding: 20px;
->>>>>>> parent of 62f4b13 (Update index.html)
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             color: #333;
@@ -117,6 +109,7 @@
             border: 1px solid #ddd;
             border-radius: 4px;
             font-size: 14px;
+            box-sizing: border-box;
         }
         
         .button {
@@ -201,22 +194,12 @@
             transition: width 0.3s ease;
         }
         
-<<<<<<< HEAD
         .info-box {
             background: #f0f8ff;
             border: 1px solid #b3d9ff;
             border-radius: 6px;
             padding: 15px;
             margin: 15px 0;
-        }
-        
-        .warning-box {
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
-            border-radius: 6px;
-            padding: 15px;
-            margin: 15px 0;
-            color: #856404;
         }
         
         .selection-info {
@@ -226,23 +209,6 @@
             padding: 15px;
             margin: 15px 0;
             display: none;
-        }
-        
-        .range-group {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .range-group input[type="range"] {
-            flex: 1;
-        }
-        
-        .range-value {
-            min-width: 50px;
-            text-align: center;
-            font-weight: bold;
-            color: #667eea;
         }
         
         .api-key-group {
@@ -262,13 +228,10 @@
             font-size: 0.85rem;
         }
         
-=======
->>>>>>> parent of 62f4b13 (Update index.html)
         @media (max-width: 768px) {
             .main-content {
                 grid-template-columns: 1fr;
             }
-<<<<<<< HEAD
             
             #map {
                 height: 400px;
@@ -278,8 +241,6 @@
                 flex-direction: column;
                 gap: 10px;
             }
-=======
->>>>>>> parent of 62f4b13 (Update index.html)
         }
     </style>
 </head>
@@ -288,9 +249,8 @@
         <div class="logo">🏔️ Multi-Source Terrain Generator</div>
         <div class="data-source-selector">
             <select id="dataSource" onchange="onDataSourceChange()">
-                <option value="google">Google Maps API</option>
-                <option value="myopentopo">MyOpenTopo API</option>
-                <option value="opentopo">OpenTopography.org</option>
+                <option value="google">Google Maps Elevation API</option>
+                <option value="opentopo">OpenTopography.org (SRTM)</option>
                 <option value="usgs">USGS Elevation Point Query</option>
                 <option value="openelev">Open-Elevation API</option>
                 <option value="mapbox">Mapbox Tilequery API</option>
@@ -300,57 +260,57 @@
 
     <div class="container">
         <div class="header">
-<<<<<<< HEAD
             <h1>🌍 Multi-Source Terrain Generator</h1>
             <p>Generate 3D terrain models from multiple elevation data sources</p>
-=======
-            <h1>🏔️ Ultra HD Terrain Generator</h1>
-            <p>Generate high-resolution 3D terrain models from elevation data</p>
->>>>>>> parent of 62f4b13 (Update index.html)
         </div>
 
         <div class="main-content">
             <div class="map-container">
-                <div id="map"></div>
+                <div id="map">
+                    <div style="display: flex; align-items: center; justify-content: center; height: 100%; text-align: center; color: #666;">
+                        <div>
+                            <h3>🗺️ Map Not Loaded</h3>
+                            <p>Load a map service below to get started</p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div class="controls">
-<<<<<<< HEAD
                 <div id="sourceInfo" class="info-box">
-                    <strong>📊 Google Maps API</strong><br>
+                    <strong>📊 Google Maps Elevation API</strong><br>
                     High-quality global elevation data with ElevationService. Requires API key but offers excellent coverage and accuracy.
                 </div>
 
                 <div id="apiKeyGroup" class="control-group api-key-group active">
-                    <label for="apiKey">API Key:</label>
-                    <input type="password" id="apiKey" placeholder="Enter your API key">
-                    <button class="button" onclick="loadMap()" id="loadBtn">Load Map</button>
+                    <div id="googleApiKey" class="api-key-field">
+                        <label for="googleKey">Google Maps API Key:</label>
+                        <input type="password" id="googleKey" placeholder="Enter your Google Maps API key">
+                    </div>
+                    
+                    <div id="mapboxApiKey" class="api-key-field" style="display: none;">
+                        <label for="mapboxKey">Mapbox API Key:</label>
+                        <input type="password" id="mapboxKey" placeholder="Enter your Mapbox API key">
+                    </div>
+                    
+                    <button class="button" onclick="loadMap()" id="loadBtn">Load Map & Enable Elevation Data</button>
                 </div>
 
                 <div id="openSourceGroup" class="control-group api-key-group">
                     <div class="info-box">
                         <strong>🆓 Open Source Data</strong><br>
-                        No API key required! Click below to load the map with OpenStreetMap.
+                        No API key required! Uses free elevation services.
                     </div>
-                    <button class="button" onclick="loadOpenSourceMap()" id="loadOpenBtn">Load Open Source Map</button>
+                    <button class="button" onclick="loadOpenSourceMap()" id="loadOpenBtn">Load Map & Enable Data Source</button>
                 </div>
 
                 <div class="info-box">
                     <strong>📋 Instructions:</strong><br>
                     1. Select data source from top-right dropdown<br>
-                    2. Load map (API key required for Google only)<br>
+                    2. Load map (API key required for some sources)<br>
                     3. Draw rectangle to select area<br>
                     4. Choose resolution and settings<br>
                     5. Generate 3D model
-=======
-                <div class="info-box">
-                    <strong>🚀 Ultra HD Features:</strong><br>
-                    • Multiple map services available<br>
-                    • Ultra-high resolution up to 2000×2000<br>
-                    • Real-time processing estimates<br>
-                    • Professional 3D model generation<br>
-                    • STL files ready for 3D printing
->>>>>>> parent of 62f4b13 (Update index.html)
                 </div>
 
                 <div class="selection-info" id="selectionInfo">
@@ -360,39 +320,23 @@
                 </div>
 
                 <div class="control-group">
-<<<<<<< HEAD
                     <label for="resolution">Resolution:</label>
                     <select id="resolution" onchange="updateInfo()">
-                        <option value="20">20×20 (441 points)</option>
-                        <option value="30">30×30 (961 points)</option>
-                        <option value="40" selected>40×40 (1,681 points)</option>
                         <option value="50">50×50 (2,601 points)</option>
-                        <option value="60">60×60 (3,721 points)</option>
-                        <option value="75">75×75 (5,776 points)</option>
-                        <option value="100">100×100 (10,201 points)</option>
+                        <option value="100" selected>100×100 (10,201 points)</option>
+                        <option value="200">200×200 (40,401 points)</option>
+                        <option value="500">500×500 (251,001 points)</option>
+                        <option value="1000">1000×1000 (1,002,001 points)</option>
                     </select>
                     <div id="resolutionWarning" class="source-info">
-                        Resolution limits vary by data source. Some open-source APIs may have lower rate limits.
+                        Resolution limits vary by data source. Some sources may have rate limits.
                     </div>
-=======
-                    <label for="resolution">🎯 Resolution:</label>
-                    <select id="resolution">
-                        <option value="50">50×50 (Fast - 2.5K points)</option>
-                        <option value="100" selected>100×100 (Good - 10K points)</option>
-                        <option value="200">200×200 (High - 40K points)</option>
-                        <option value="500">500×500 (Ultra - 250K points)</option>
-                        <option value="1000">1000×1000 (Extreme - 1M points)</option>
-                        <option value="2000">2000×2000 (Maximum - 4M points)</option>
-                    </select>
->>>>>>> parent of 62f4b13 (Update index.html)
                 </div>
 
                 <div class="control-group">
                     <label for="exaggeration">Terrain Exaggeration: <span id="exagValue">2.0×</span></label>
-                    <div class="range-group">
-                        <input type="range" id="exaggeration" min="0.5" max="5" step="0.1" value="2" 
-                               oninput="document.getElementById('exagValue').textContent = this.value + '×'">
-                    </div>
+                    <input type="range" id="exaggeration" min="0.5" max="5" step="0.1" value="2" 
+                           oninput="document.getElementById('exagValue').textContent = this.value + '×'">
                 </div>
 
                 <div class="control-group">
@@ -406,11 +350,7 @@
                 </div>
 
                 <div class="progress-container" id="progressContainer">
-<<<<<<< HEAD
                     <div><strong id="progressTitle">Processing...</strong></div>
-=======
-                    <div><strong id="progressTitle">Processing Ultra HD Terrain...</strong></div>
->>>>>>> parent of 62f4b13 (Update index.html)
                     <div class="progress-bar">
                         <div class="progress-fill" id="progressFill"></div>
                     </div>
@@ -421,7 +361,7 @@
                     🚀 Generate 3D Model
                 </button>
 
-                <div id="status"></div>
+                <div id="status">Select a data source and load the map to get started.</div>
             </div>
         </div>
     </div>
@@ -430,60 +370,57 @@
         let map, rectangle, selectedBounds = null;
         let mapLoaded = false;
         let isProcessing = false;
-<<<<<<< HEAD
         let elevationService = null;
         let currentDataSource = 'google';
-=======
-        let processingStartTime = null;
-        let drawingRectangle = null;
->>>>>>> parent of 62f4b13 (Update index.html)
 
         const dataSources = {
             google: {
-                name: 'Google Maps API',
+                name: 'Google Maps Elevation API',
                 description: 'High-quality global elevation data with ElevationService. Requires API key but offers excellent coverage and accuracy.',
                 requiresKey: true,
-                maxPoints: 10000,
-                rateLimit: 100
-            },
-            myopentopo: {
-                name: 'MyOpenTopo API',
-                description: 'High-resolution topographic data from OpenTopography with API key access. Offers SRTM, ASTER, and other scientific datasets.',
-                requiresKey: true,
-                maxPoints: 8000,
-                rateLimit: 60,
-                baseUrl: 'https://cloud.sdsc.edu/v1/products'
+                maxPoints: 50000,
+                rateLimit: 100,
+                accuracy: 'High',
+                coverage: 'Global'
             },
             opentopo: {
-                name: 'OpenTopography.org',
-                description: 'Open-source topographic data from SRTM, ASTER, and other datasets. Free to use with registration.',
+                name: 'OpenTopography.org (SRTM)',
+                description: 'Open-source high-resolution topographic data from SRTM, ASTER, and other scientific datasets. Free to use.',
                 requiresKey: false,
-                maxPoints: 5000,
+                maxPoints: 25000,
                 rateLimit: 50,
+                accuracy: 'High',
+                coverage: 'Global',
                 baseUrl: 'https://cloud.sdsc.edu/v1/products'
             },
             usgs: {
                 name: 'USGS Elevation Point Query',
-                description: 'US Geological Survey elevation data. Free for US locations, high accuracy.',
+                description: 'US Geological Survey elevation data. Free for US locations, very high accuracy.',
                 requiresKey: false,
-                maxPoints: 3000,
+                maxPoints: 10000,
                 rateLimit: 30,
+                accuracy: 'Very High',
+                coverage: 'USA Only',
                 baseUrl: 'https://nationalmap.gov/epqs/pqs.php'
             },
             openelev: {
                 name: 'Open-Elevation API',
                 description: 'Open-source elevation API using SRTM data. Free to use, global coverage.',
                 requiresKey: false,
-                maxPoints: 2000,
+                maxPoints: 5000,
                 rateLimit: 25,
+                accuracy: 'Medium',
+                coverage: 'Global',
                 baseUrl: 'https://api.open-elevation.com/api/v1/lookup'
             },
             mapbox: {
                 name: 'Mapbox Tilequery API',
                 description: 'Mapbox elevation data with global coverage. Requires API key but offers good performance.',
                 requiresKey: true,
-                maxPoints: 8000,
+                maxPoints: 20000,
                 rateLimit: 80,
+                accuracy: 'High',
+                coverage: 'Global',
                 baseUrl: 'https://api.mapbox.com/v4/mapbox.mapbox-terrain-v2/tilequery'
             }
         };
@@ -496,17 +433,33 @@
             // Update source info
             document.getElementById('sourceInfo').innerHTML = `
                 <strong>📊 ${sourceConfig.name}</strong><br>
-                ${sourceConfig.description}
+                ${sourceConfig.description}<br>
+                <strong>Accuracy:</strong> ${sourceConfig.accuracy} | 
+                <strong>Coverage:</strong> ${sourceConfig.coverage} | 
+                <strong>Max Points:</strong> ${sourceConfig.maxPoints.toLocaleString()}
             `;
             
-            // Show/hide API key field
+            // Show/hide appropriate sections
             const apiKeyGroup = document.getElementById('apiKeyGroup');
             const openSourceGroup = document.getElementById('openSourceGroup');
             
-<<<<<<< HEAD
+            // Hide all API key fields first
+            document.getElementById('googleApiKey').style.display = 'none';
+            document.getElementById('mapboxApiKey').style.display = 'none';
+            
             if (sourceConfig.requiresKey) {
                 apiKeyGroup.classList.add('active');
                 openSourceGroup.classList.remove('active');
+                
+                // Show the appropriate API key field
+                switch (dataSource) {
+                    case 'google':
+                        document.getElementById('googleApiKey').style.display = 'block';
+                        break;
+                    case 'mapbox':
+                        document.getElementById('mapboxApiKey').style.display = 'block';
+                        break;
+                }
             } else {
                 apiKeyGroup.classList.remove('active');
                 openSourceGroup.classList.add('active');
@@ -514,17 +467,28 @@
             
             // Update resolution warning
             document.getElementById('resolutionWarning').innerHTML = `
-                <strong>${sourceConfig.name}:</strong> Max ~${sourceConfig.maxPoints} points, ${sourceConfig.rateLimit} requests/min rate limit.
+                <strong>${sourceConfig.name}:</strong> Max ${sourceConfig.maxPoints.toLocaleString()} points, ${sourceConfig.rateLimit} requests/min rate limit.
             `;
             
             // Reset map
+            resetMapAndSelection();
+            
+            showStatus(`Switched to ${sourceConfig.name}. ${sourceConfig.requiresKey ? 'Enter API key to continue.' : 'Click "Load Map" to continue.'}`, 'info');
+        }
+
+        function resetMapAndSelection() {
             mapLoaded = false;
             selectedBounds = null;
-            if (rectangle) rectangle.setMap(null);
+            if (rectangle) {
+                if (rectangle.setMap) {
+                    rectangle.setMap(null); // Google Maps
+                } else if (map && map.removeLayer) {
+                    map.removeLayer(rectangle); // Leaflet
+                }
+                rectangle = null;
+            }
             updateSelectionInfo();
             checkGenerateButton();
-            
-            showStatus(`Switched to ${sourceConfig.name}. ${sourceConfig.requiresKey ? 'Enter API key to continue.' : 'Click "Load Open Source Map" to continue.'}`, 'info');
         }
 
         function showStatus(message, type = 'info') {
@@ -539,41 +503,61 @@
                 container.classList.add('active');
                 document.getElementById('progressFill').style.width = progress + '%';
                 document.getElementById('progressText').textContent = text;
-=======
-            // Load Leaflet dynamically
-            if (!window.L) {
-                loadLeaflet().then(() => {
-                    initLeafletMap();
-                }).catch(error => {
-                    showStatus('Failed to load map library: ' + error.message, 'error');
-                });
->>>>>>> parent of 62f4b13 (Update index.html)
             } else {
                 container.classList.remove('active');
             }
         }
 
         function loadMap() {
-            const apiKey = document.getElementById('apiKey').value.trim();
+            let apiKey = '';
+            let serviceName = '';
+            
+            // Get the appropriate API key based on current data source
+            switch (currentDataSource) {
+                case 'google':
+                    apiKey = document.getElementById('googleKey').value.trim();
+                    serviceName = 'Google Maps';
+                    break;
+                case 'mapbox':
+                    apiKey = document.getElementById('mapboxKey').value.trim();
+                    serviceName = 'Mapbox';
+                    break;
+            }
+            
             if (!apiKey) {
-                showStatus('Please enter your Google Maps API key.', 'error');
+                showStatus(`Please enter your ${serviceName} API key.`, 'error');
                 return;
             }
 
-            showStatus('Loading Google Maps...', 'info');
-            
+            if (currentDataSource === 'google') {
+                showStatus('Loading Google Maps...', 'info');
+                loadGoogleMaps(apiKey);
+            } else {
+                // For other API-based services, we'll use OpenStreetMap for the map display
+                // but use their APIs for elevation data
+                showStatus(`Loading map for ${serviceName}...`, 'info');
+                loadOpenSourceMap();
+            }
+        }
+
+        function loadGoogleMaps(apiKey) {
+            // Check if Google Maps is already loaded
+            if (window.google && window.google.maps) {
+                initGoogleMap();
+                return;
+            }
+
+            // Create callback function
+            window.initGoogleMapCallback = function() {
+                initGoogleMap();
+            };
+
+            // Load Google Maps script
             const script = document.createElement('script');
-<<<<<<< HEAD
-            script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=drawing&callback=initGoogleMap`;
-            script.onerror = () => showStatus('Failed to load Google Maps. Check your API key.', 'error');
-            
-            window.initGoogleMap = initGoogleMap;
-=======
             script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=drawing&callback=initGoogleMapCallback`;
             script.onerror = () => {
-                showStatus('Failed to load Google Maps. Check your API key.', 'error');
+                showStatus('Failed to load Google Maps. Please check your API key and try again.', 'error');
             };
->>>>>>> parent of 62f4b13 (Update index.html)
             document.head.appendChild(script);
         }
 
@@ -582,28 +566,52 @@
             
             // Load Leaflet for open source mapping
             if (!window.L) {
-                const leafletCSS = document.createElement('link');
-                leafletCSS.rel = 'stylesheet';
-                leafletCSS.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-                document.head.appendChild(leafletCSS);
-                
-                const leafletJS = document.createElement('script');
-                leafletJS.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-                leafletJS.onload = initOpenSourceMap;
-                document.head.appendChild(leafletJS);
+                loadLeaflet().then(() => {
+                    initOpenSourceMap();
+                }).catch(error => {
+                    showStatus('Failed to load map library: ' + error.message, 'error');
+                });
             } else {
                 initOpenSourceMap();
             }
         }
 
+        function loadLeaflet() {
+            return new Promise((resolve, reject) => {
+                // Load CSS
+                const leafletCSS = document.createElement('link');
+                leafletCSS.rel = 'stylesheet';
+                leafletCSS.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+                leafletCSS.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=';
+                leafletCSS.crossOrigin = '';
+                document.head.appendChild(leafletCSS);
+                
+                // Load JS
+                const leafletJS = document.createElement('script');
+                leafletJS.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+                leafletJS.integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';
+                leafletJS.crossOrigin = '';
+                
+                leafletJS.onload = () => {
+                    console.log('Leaflet loaded successfully');
+                    resolve();
+                };
+                
+                leafletJS.onerror = () => {
+                    reject(new Error('Failed to load Leaflet'));
+                };
+                
+                document.head.appendChild(leafletJS);
+            });
+        }
+
         function initGoogleMap() {
             try {
-<<<<<<< HEAD
                 showStatus('Google Maps loaded! Draw a rectangle to select terrain area.', 'success');
                 mapLoaded = true;
-=======
+                
+                // Clear existing map content
                 document.getElementById('map').innerHTML = '';
->>>>>>> parent of 62f4b13 (Update index.html)
                 
                 // Osaka, Japan coordinates: 34.6937, 135.5023
                 map = new google.maps.Map(document.getElementById('map'), {
@@ -612,11 +620,8 @@
                     mapTypeId: 'terrain'
                 });
 
-<<<<<<< HEAD
                 elevationService = new google.maps.ElevationService();
 
-=======
->>>>>>> parent of 62f4b13 (Update index.html)
                 const drawingManager = new google.maps.drawing.DrawingManager({
                     drawingMode: google.maps.drawing.OverlayType.RECTANGLE,
                     drawingControl: true,
@@ -635,7 +640,6 @@
 
                 drawingManager.setMap(map);
 
-<<<<<<< HEAD
                 drawingManager.addListener('rectanglecomplete', function(rect) {
                     if (rectangle) rectangle.setMap(null);
                     rectangle = rect;
@@ -661,72 +665,14 @@
 
                 hideLoadButtons();
 
-=======
-                drawingManager.addListener('rectanglecomplete', function(rectangle) {
-                    if (drawingRectangle) drawingRectangle.setMap(null);
-                    drawingRectangle = rectangle;
-                    
-                    selectedBounds = {
-                        north: rectangle.getBounds().getNorthEast().lat(),
-                        south: rectangle.getBounds().getSouthWest().lat(),
-                        east: rectangle.getBounds().getNorthEast().lng(),
-                        west: rectangle.getBounds().getSouthWest().lng()
-                    };
-                    
-                    updateSelection();
-                });
-                
-                mapLoaded = true;
-                showStatus('✅ Google Maps loaded! Use drawing tools to select terrain area.', 'success');
-                updateControls();
-                
->>>>>>> parent of 62f4b13 (Update index.html)
             } catch (error) {
                 showStatus('Error initializing Google Maps: ' + error.message, 'error');
             }
         }
 
-<<<<<<< HEAD
         function initOpenSourceMap() {
-=======
-        function loadMapboxMap() {
-            const accessToken = document.getElementById('mapboxApiKey').value.trim();
-            if (!accessToken) {
-                showStatus('Please enter your Mapbox access token.', 'error');
-                return;
-            }
-            
-            showStatus('Loading Mapbox...', 'info');
-            
-            // Load Mapbox GL JS
-            loadMapboxGL().then(() => {
-                initMapboxMap(accessToken);
-            }).catch(error => {
-                showStatus('Failed to load Mapbox: ' + error.message, 'error');
-            });
-        }
-
-        function loadMapboxGL() {
-            return new Promise((resolve, reject) => {
-                // Load CSS
-                const css = document.createElement('link');
-                css.href = 'https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css';
-                css.rel = 'stylesheet';
-                document.head.appendChild(css);
-                
-                // Load JS
-                const script = document.createElement('script');
-                script.src = 'https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js';
-                script.onload = resolve;
-                script.onerror = () => reject(new Error('Failed to load Mapbox GL'));
-                document.head.appendChild(script);
-            });
-        }
-
-        function initMapboxMap(accessToken) {
->>>>>>> parent of 62f4b13 (Update index.html)
             try {
-                showStatus('OpenStreetMap loaded! Draw a rectangle to select terrain area.', 'success');
+                showStatus('OpenStreetMap loaded! Click and drag to draw a rectangle to select terrain area.', 'success');
                 mapLoaded = true;
                 
                 // Clear existing map
@@ -739,49 +685,8 @@
                     attribution: '© OpenStreetMap contributors'
                 }).addTo(map);
 
-                // Add rectangle drawing capability
-                let isDrawing = false;
-                let startLatLng = null;
-                
-                map.on('mousedown', function(e) {
-                    isDrawing = true;
-                    startLatLng = e.latlng;
-                    if (rectangle) {
-                        map.removeLayer(rectangle);
-                    }
-                });
-                
-                map.on('mousemove', function(e) {
-                    if (isDrawing && startLatLng) {
-                        if (rectangle) {
-                            map.removeLayer(rectangle);
-                        }
-                        
-                        const bounds = L.latLngBounds(startLatLng, e.latlng);
-                        rectangle = L.rectangle(bounds, {
-                            color: '#667eea',
-                            fillColor: '#667eea',
-                            fillOpacity: 0.3,
-                            weight: 2
-                        }).addTo(map);
-                    }
-                });
-                
-                map.on('mouseup', function(e) {
-                    if (isDrawing && startLatLng) {
-                        isDrawing = false;
-                        const bounds = L.latLngBounds(startLatLng, e.latlng);
-                        selectedBounds = {
-                            north: bounds.getNorth(),
-                            south: bounds.getSouth(),
-                            east: bounds.getEast(),
-                            west: bounds.getWest()
-                        };
-                        updateSelectionInfo();
-                        checkGenerateButton();
-                    }
-                });
-
+                // Enhanced rectangle drawing
+                setupLeafletDrawing();
                 hideLoadButtons();
 
             } catch (error) {
@@ -789,14 +694,95 @@
             }
         }
 
+        function setupLeafletDrawing() {
+            let isDrawing = false;
+            let startLatLng = null;
+            let drawingRectangle = null;
+            
+            map.on('mousedown', function(e) {
+                if (e.originalEvent.button === 0) { // Left click only
+                    isDrawing = true;
+                    startLatLng = e.latlng;
+                    
+                    // Remove existing rectangles
+                    if (rectangle) {
+                        map.removeLayer(rectangle);
+                    }
+                    if (drawingRectangle) {
+                        map.removeLayer(drawingRectangle);
+                    }
+                    
+                    // Prevent map dragging while drawing
+                    map.dragging.disable();
+                    e.originalEvent.preventDefault();
+                }
+            });
+            
+            map.on('mousemove', function(e) {
+                if (isDrawing && startLatLng) {
+                    if (drawingRectangle) {
+                        map.removeLayer(drawingRectangle);
+                    }
+                    
+                    const bounds = L.latLngBounds(startLatLng, e.latlng);
+                    drawingRectangle = L.rectangle(bounds, {
+                        color: '#667eea',
+                        fillColor: '#667eea',
+                        fillOpacity: 0.2,
+                        weight: 2,
+                        dashArray: '5, 5' // Dashed line while drawing
+                    }).addTo(map);
+                }
+            });
+            
+            map.on('mouseup', function(e) {
+                if (isDrawing && startLatLng) {
+                    isDrawing = false;
+                    map.dragging.enable();
+                    
+                    // Remove drawing rectangle
+                    if (drawingRectangle) {
+                        map.removeLayer(drawingRectangle);
+                    }
+                    
+                    // Create final rectangle
+                    const bounds = L.latLngBounds(startLatLng, e.latlng);
+                    rectangle = L.rectangle(bounds, {
+                        color: '#667eea',
+                        fillColor: '#667eea',
+                        fillOpacity: 0.3,
+                        weight: 3
+                    }).addTo(map);
+                    
+                    selectedBounds = {
+                        north: bounds.getNorth(),
+                        south: bounds.getSouth(),
+                        east: bounds.getEast(),
+                        west: bounds.getWest()
+                    };
+                    
+                    updateSelectionInfo();
+                    checkGenerateButton();
+                    
+                    showStatus('Area selected! Adjust settings and generate your 3D model.', 'success');
+                }
+            });
+            
+            // Prevent context menu
+            map.on('contextmenu', function(e) {
+                e.originalEvent.preventDefault();
+            });
+        }
+
         function hideLoadButtons() {
             document.getElementById('loadBtn').style.display = 'none';
             document.getElementById('loadOpenBtn').style.display = 'none';
-            document.getElementById('apiKey').style.display = 'none';
-            document.querySelector('label[for="apiKey"]').style.display = 'none';
+            
+            // Hide all API key fields after successful load
+            document.getElementById('googleApiKey').style.display = 'none';
+            document.getElementById('mapboxApiKey').style.display = 'none';
         }
 
-<<<<<<< HEAD
         function updateSelectionInfo() {
             const info = document.getElementById('selectionInfo');
             if (selectedBounds) {
@@ -817,35 +803,12 @@
                     `Area: ${area.toFixed(6)} sq° ${areaClass}`;
                 
                 info.style.display = 'block';
-=======
-        function updateControls() {
-            const generateBtn = document.getElementById('generateBtn');
-            generateBtn.disabled = !(mapLoaded && selectedBounds && !isProcessing);
-        }
-
-        function showStatus(message, type = 'info') {
-            const status = document.getElementById('status');
-            status.className = `status ${type}`;
-            status.textContent = message;
-        }
-
-        function showProgress(show, progress = 0, text = '', eta = '') {
-            const container = document.getElementById('progressContainer');
-            if (show) {
-                container.classList.add('active');
-                document.getElementById('progressFill').style.width = progress + '%';
-                document.getElementById('progressText').textContent = text;
-                document.getElementById('etaText').textContent = eta;
->>>>>>> parent of 62f4b13 (Update index.html)
             } else {
                 info.style.display = 'none';
             }
         }
 
-<<<<<<< HEAD
         function updateInfo() {
-            const resolution = parseInt(document.getElementById('resolution').value);
-            const points = (resolution + 1) * (resolution + 1);
             // Could add more source-specific info here
         }
 
@@ -860,8 +823,6 @@
             switch (currentDataSource) {
                 case 'google':
                     return await fetchGoogleElevation(bounds, resolution);
-                case 'myopentopo':
-                    return await fetchMyOpenTopoElevation(bounds, resolution);
                 case 'opentopo':
                     return await fetchOpenTopoElevation(bounds, resolution);
                 case 'usgs':
@@ -884,608 +845,4 @@
                 for (let j = 0; j <= resolution; j++) {
                     const lat = bounds.south + (i * latStep);
                     const lng = bounds.west + (j * lngStep);
-                    locations.push(new google.maps.LatLng(lat, lng));
-                }
-            }
-
-            const elevationData = [];
-            const batchSize = 50;
-            const totalBatches = Math.ceil(locations.length / batchSize);
-            
-            for (let i = 0; i < locations.length; i += batchSize) {
-                const batchIndex = Math.floor(i / batchSize) + 1;
-                const batch = locations.slice(i, i + batchSize);
-                const progress = Math.round((batchIndex / totalBatches) * 80);
-                
-                showProgress(true, progress, `Google Maps batch ${batchIndex}/${totalBatches}...`);
-                
-                const results = await new Promise((resolve, reject) => {
-                    elevationService.getElevationForLocations({
-                        locations: batch
-                    }, (results, status) => {
-                        if (status === 'OK' && results) {
-                            resolve(results);
-                        } else {
-                            reject(new Error(`Google ElevationService error: ${status}`));
-                        }
-                    });
-                });
-
-                elevationData.push(...results);
-                if (batchIndex < totalBatches) {
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                }
-            }
-
-            return elevationData;
-        }
-
-        async function fetchMyOpenTopoElevation(bounds, resolution) {
-            // MyOpenTopo API implementation with API key
-            const apiKey = document.getElementById('apiKey').value.trim();
-            if (!apiKey) {
-                throw new Error('MyOpenTopo API key is required');
-            }
-            
-            const latStep = (bounds.north - bounds.south) / resolution;
-            const lngStep = (bounds.east - bounds.west) / resolution;
-            
-            const elevationData = [];
-            const batchSize = 30; // Conservative for MyOpenTopo
-            const totalPoints = (resolution + 1) * (resolution + 1);
-            let processedPoints = 0;
-            
-            // Process in chunks to avoid overwhelming the API
-            for (let i = 0; i <= resolution; i += 5) {
-                for (let j = 0; j <= resolution; j += 5) {
-                    const chunkPoints = [];
-                    
-                    for (let ci = i; ci <= Math.min(i + 4, resolution); ci++) {
-                        for (let cj = j; cj <= Math.min(j + 4, resolution); cj++) {
-                            const lat = bounds.south + (ci * latStep);
-                            const lng = bounds.west + (cj * lngStep);
-                            chunkPoints.push({ lat, lng });
-                        }
-                    }
-                    
-                    const progress = Math.round((processedPoints / totalPoints) * 80);
-                    showProgress(true, progress, `MyOpenTopo chunk ${Math.floor(processedPoints/25)}...`);
-                    
-                    try {
-                        // MyOpenTopo API call with your API key
-                        // For now, using enhanced mock data that simulates real terrain around Osaka
-                        const mockElevations = chunkPoints.map(point => ({
-                            elevation: generateOsakaTerrainElevation(point.lat, point.lng),
-                            location: point
-                        }));
-                        
-                        elevationData.push(...mockElevations);
-                        processedPoints += chunkPoints.length;
-                        
-                        // Respect API rate limits
-                        await new Promise(resolve => setTimeout(resolve, 600));
-                    } catch (error) {
-                        console.warn('MyOpenTopo batch failed, using fallback');
-                        const fallbackElevations = chunkPoints.map(point => ({
-                            elevation: 50, // Default elevation for Osaka area
-                            location: point
-                        }));
-                        elevationData.push(...fallbackElevations);
-                        processedPoints += chunkPoints.length;
-                    }
-                }
-            }
-            
-            return elevationData;
-        }
-
-        // Generate realistic elevation data for Osaka region
-        function generateOsakaTerrainElevation(lat, lng) {
-            // Osaka is generally low-lying with some hills
-            // Base elevation around 10-50m with hills up to 200m
-            const baseElevation = 20;
-            
-            // Create some realistic terrain variation
-            const hillFactor = Math.sin((lat - 34.6937) * 100) * Math.cos((lng - 135.5023) * 100);
-            const terrainVariation = Math.sin(lat * 50) * Math.cos(lng * 50) * 30;
-            const microVariation = Math.random() * 10 - 5;
-            
-            let elevation = baseElevation + (hillFactor * 80) + terrainVariation + microVariation;
-            
-            // Ensure realistic bounds for Osaka area (0-300m)
-            elevation = Math.max(0, Math.min(300, elevation));
-            
-            return elevation;
-        }
-
-        async function fetchOpenTopoElevation(bounds, resolution) {
-            // OpenTopography API implementation
-            const latStep = (bounds.north - bounds.south) / resolution;
-            const lngStep = (bounds.east - bounds.west) / resolution;
-            
-            const elevationData = [];
-            const batchSize = 25; // Conservative for open source
-            const totalPoints = (resolution + 1) * (resolution + 1);
-            let processedPoints = 0;
-            
-            for (let i = 0; i <= resolution; i += 5) { // Process in 5x5 chunks
-                for (let j = 0; j <= resolution; j += 5) {
-                    const chunkPoints = [];
-                    
-                    for (let ci = i; ci <= Math.min(i + 4, resolution); ci++) {
-                        for (let cj = j; cj <= Math.min(j + 4, resolution); cj++) {
-                            const lat = bounds.south + (ci * latStep);
-                            const lng = bounds.west + (cj * lngStep);
-                            chunkPoints.push([lng, lat]); // Note: OpenTopo uses lng,lat order
-                        }
-                    }
-                    
-                    const progress = Math.round((processedPoints / totalPoints) * 80);
-                    showProgress(true, progress, `OpenTopography chunk ${Math.floor(processedPoints/25)}...`);
-                    
-                    try {
-                        // Simulate OpenTopography API call (replace with actual API)
-                        const mockElevations = chunkPoints.map(([lng, lat]) => ({
-                            elevation: Math.random() * 1000 + 100, // Mock elevation data
-                            location: { lat, lng }
-                        }));
-                        
-                        elevationData.push(...mockElevations);
-                        processedPoints += chunkPoints.length;
-                        
-                        await new Promise(resolve => setTimeout(resolve, 500));
-                    } catch (error) {
-                        console.warn('OpenTopo batch failed, using fallback');
-                        // Fallback to mock data
-                        const fallbackElevations = chunkPoints.map(([lng, lat]) => ({
-                            elevation: 200,
-                            location: { lat, lng }
-                        }));
-                        elevationData.push(...fallbackElevations);
-                        processedPoints += chunkPoints.length;
-                    }
-                }
-            }
-            
-            return elevationData;
-        }
-
-        async function fetchUSGSElevation(bounds, resolution) {
-            // USGS Elevation Point Query Service implementation
-            const latStep = (bounds.north - bounds.south) / resolution;
-            const lngStep = (bounds.east - bounds.west) / resolution;
-            
-            const elevationData = [];
-            const totalPoints = (resolution + 1) * (resolution + 1);
-            let processedPoints = 0;
-            
-            for (let i = 0; i <= resolution; i++) {
-                for (let j = 0; j <= resolution; j++) {
-                    const lat = bounds.south + (i * latStep);
-                    const lng = bounds.west + (j * lngStep);
-                    
-                    const progress = Math.round((processedPoints / totalPoints) * 80);
-                    if (processedPoints % 100 === 0) {
-                        showProgress(true, progress, `USGS point ${processedPoints}/${totalPoints}...`);
-                    }
-                    
-                    try {
-                        // Mock USGS API call (replace with actual API)
-                        const mockElevation = {
-                            elevation: Math.sin(lat * 0.1) * Math.cos(lng * 0.1) * 500 + 300,
-                            location: { lat, lng }
-                        };
-                        
-                        elevationData.push(mockElevation);
-                        processedPoints++;
-                        
-                        // Small delay to respect rate limits
-                        if (processedPoints % 10 === 0) {
-                            await new Promise(resolve => setTimeout(resolve, 100));
-                        }
-                    } catch (error) {
-                        console.warn('USGS point failed, using fallback');
-                        elevationData.push({
-                            elevation: 250,
-                            location: { lat, lng }
-                        });
-                        processedPoints++;
-                    }
-                }
-            }
-            
-            return elevationData;
-        }
-
-        async function fetchOpenElevation(bounds, resolution) {
-            // Open-Elevation API implementation
-            const latStep = (bounds.north - bounds.south) / resolution;
-            const lngStep = (bounds.east - bounds.west) / resolution;
-            
-            const locations = [];
-            for (let i = 0; i <= resolution; i++) {
-                for (let j = 0; j <= resolution; j++) {
-                    const lat = bounds.south + (i * latStep);
-                    const lng = bounds.west + (j * lngStep);
-                    locations.push({ latitude: lat, longitude: lng });
-                }
-            }
-
-            const elevationData = [];
-            const batchSize = 20; // Small batches for open-elevation
-            const totalBatches = Math.ceil(locations.length / batchSize);
-            
-            for (let i = 0; i < locations.length; i += batchSize) {
-                const batchIndex = Math.floor(i / batchSize) + 1;
-                const batch = locations.slice(i, i + batchSize);
-                const progress = Math.round((batchIndex / totalBatches) * 80);
-                
-                showProgress(true, progress, `Open-Elevation batch ${batchIndex}/${totalBatches}...`);
-                
-                try {
-                    // Mock Open-Elevation API call
-                    const mockResults = batch.map(loc => ({
-                        elevation: Math.random() * 800 + 50,
-                        location: { lat: loc.latitude, lng: loc.longitude }
-                    }));
-                    
-                    elevationData.push(...mockResults);
-                    await new Promise(resolve => setTimeout(resolve, 800)); // Longer delay for free API
-                } catch (error) {
-                    console.warn('Open-Elevation batch failed, using fallback');
-                    const fallbackResults = batch.map(loc => ({
-                        elevation: 150,
-                        location: { lat: loc.latitude, lng: loc.longitude }
-                    }));
-                    elevationData.push(...fallbackResults);
-                }
-            }
-            
-            return elevationData;
-        }
-
-        async function fetchMapboxElevation(bounds, resolution) {
-            // Mapbox Tilequery API implementation
-            const latStep = (bounds.north - bounds.south) / resolution;
-            const lngStep = (bounds.east - bounds.west) / resolution;
-            
-            const elevationData = [];
-            const batchSize = 40; // Mapbox allows more requests
-            const totalPoints = (resolution + 1) * (resolution + 1);
-            let processedPoints = 0;
-            
-            for (let i = 0; i <= resolution; i++) {
-                for (let j = 0; j <= resolution; j++) {
-                    const lat = bounds.south + (i * latStep);
-                    const lng = bounds.west + (j * lngStep);
-                    
-                    const progress = Math.round((processedPoints / totalPoints) * 80);
-                    if (processedPoints % 50 === 0) {
-                        showProgress(true, progress, `Mapbox point ${processedPoints}/${totalPoints}...`);
-                    }
-                    
-                    try {
-                        // Mock Mapbox API call
-                        const mockElevation = {
-                            elevation: Math.abs(Math.sin(lat * 0.05) * Math.cos(lng * 0.05)) * 600 + 100,
-                            location: { lat, lng }
-                        };
-                        
-                        elevationData.push(mockElevation);
-                        processedPoints++;
-                        
-                        if (processedPoints % 20 === 0) {
-                            await new Promise(resolve => setTimeout(resolve, 200));
-                        }
-                    } catch (error) {
-                        console.warn('Mapbox point failed, using fallback');
-                        elevationData.push({
-                            elevation: 200,
-                            location: { lat, lng }
-                        });
-                        processedPoints++;
-                    }
-                }
-            }
-            
-            return elevationData;
-=======
-        function formatTime(seconds) {
-            if (seconds < 60) return `${Math.round(seconds)}s`;
-            if (seconds < 3600) return `${Math.round(seconds / 60)}m ${Math.round(seconds % 60)}s`;
-            return `${Math.round(seconds / 3600)}h ${Math.round((seconds % 3600) / 60)}m`;
-        }
-
-        function calculateETA(startTime, currentProgress) {
-            if (!startTime || currentProgress <= 0) return '';
-            
-            const elapsed = (Date.now() - startTime) / 1000;
-            const rate = currentProgress / elapsed;
-            const remaining = (100 - currentProgress) / rate;
-            
-            return `ETA: ${formatTime(remaining)} (${formatTime(elapsed)} elapsed)`;
->>>>>>> parent of 62f4b13 (Update index.html)
-        }
-
-        async function generateModel() {
-            if (!selectedBounds) {
-                showStatus('Please select an area on the map first.', 'error');
-                return;
-            }
-
-            const generateBtn = document.getElementById('generateBtn');
-            generateBtn.disabled = true;
-            generateBtn.textContent = 'Processing...';
-            isProcessing = true;
-
-            try {
-<<<<<<< HEAD
-                const sourceConfig = dataSources[currentDataSource];
-                showStatus(`Starting terrain generation with ${sourceConfig.name}...`, 'info');
-                showProgress(true, 5, 'Initializing...');
-
-                const resolution = parseInt(document.getElementById('resolution').value);
-                const totalPoints = (resolution + 1) * (resolution + 1);
-                
-                if (totalPoints > sourceConfig.maxPoints) {
-                    throw new Error(`Resolution too high for ${sourceConfig.name}. Max ${sourceConfig.maxPoints} points, requested ${totalPoints}.`);
-                }
-
-                // Fetch elevation data from selected source
-                const elevationData = await fetchElevationData(selectedBounds, resolution);
-
-                showProgress(true, 85, 'Creating 3D model...');
-=======
-                showStatus(`🚀 Starting terrain generation: ${resolution}×${resolution}`, 'info');
-                showProgress(true, 5, 'Initializing processing...', '');
-
-                // Generate elevation data
-                const elevationData = await generateElevationData(selectedBounds, resolution);
-
-                showProgress(true, 85, 'Creating 3D model...', '');
->>>>>>> parent of 62f4b13 (Update index.html)
-
-                // Generate STL
-                const stlContent = generateSTL(elevationData, resolution);
-                
-                showProgress(true, 95, 'Preparing download...');
-                
-                // Download file
-<<<<<<< HEAD
-                downloadSTL(stlContent, resolution, currentDataSource);
-                
-                showProgress(true, 100, 'Complete!');
-=======
-                downloadSTL(stlContent, resolution);
->>>>>>> parent of 62f4b13 (Update index.html)
-                
-                showStatus(
-<<<<<<< HEAD
-                    `✅ Model generated successfully using ${sourceConfig.name}! ${elevationData.length} points processed.`,
-=======
-                    `✅ Model generated! ${elevationData.length.toLocaleString()} points processed in ${formatTime(processingTime)}`,
->>>>>>> parent of 62f4b13 (Update index.html)
-                    'success'
-                );
-
-                setTimeout(() => showProgress(false), 3000);
-
-            } catch (error) {
-                console.error('Error:', error);
-                showProgress(false);
-<<<<<<< HEAD
-                
-                let errorMessage = error.message;
-                if (error.message.includes('Rate limit') || error.message.includes('OVER_QUERY_LIMIT')) {
-                    errorMessage = 'Rate limit exceeded. Try: smaller area, lower resolution, or wait a few minutes.';
-                } else if (error.message.includes('REQUEST_DENIED')) {
-                    errorMessage = 'API access denied. Check your API key permissions.';
-                } else if (error.message.includes('Resolution too high')) {
-                    errorMessage = error.message + ' Try reducing the resolution.';
-                }
-                
-                showStatus('Error: ' + errorMessage, 'error');
-=======
-                showStatus('❌ Error: ' + error.message, 'error');
->>>>>>> parent of 62f4b13 (Update index.html)
-            } finally {
-                isProcessing = false;
-                generateBtn.disabled = false;
-                generateBtn.textContent = '🚀 Generate 3D Model';
-                checkGenerateButton();
-            }
-        }
-
-        function generateSTL(elevationData, resolution) {
-            const exaggeration = parseFloat(document.getElementById('exaggeration').value);
-            const baseHeight = parseFloat(document.getElementById('baseHeight').value);
-            const modelSize = parseFloat(document.getElementById('modelSize').value);
-
-            // Find min/max elevations
-            let minElevation = Math.min(...elevationData.map(p => p.elevation));
-            let maxElevation = Math.max(...elevationData.map(p => p.elevation));
-            
-            if (minElevation === maxElevation) maxElevation = minElevation + 1;
-
-            const elevationRange = maxElevation - minElevation;
-            
-            // Create elevation grid
-            const grid = [];
-            for (let i = 0; i <= resolution; i++) {
-                grid[i] = [];
-                for (let j = 0; j <= resolution; j++) {
-                    const index = i * (resolution + 1) + j;
-                    if (index < elevationData.length) {
-                        const elevation = elevationData[index].elevation;
-                        const normalizedHeight = ((elevation - minElevation) / elevationRange) * 
-                                               modelSize * 0.3 * exaggeration;
-                        grid[i][j] = normalizedHeight + baseHeight;
-                    } else {
-                        grid[i][j] = baseHeight;
-                    }
-                }
-            }
-
-<<<<<<< HEAD
-            // Generate STL
-            let stl = `solid ${currentDataSource}_terrain\n`;
-=======
-            // Generate STL content
-            let stl = `solid terrain_${resolution}x${resolution}\n`;
->>>>>>> parent of 62f4b13 (Update index.html)
-            const step = modelSize / resolution;
-            
-            // Surface triangles
-            for (let i = 0; i < resolution; i++) {
-                for (let j = 0; j < resolution; j++) {
-                    const x1 = i * step, y1 = j * step;
-                    const x2 = (i + 1) * step, y2 = (j + 1) * step;
-                    
-                    const z1 = grid[i][j], z2 = grid[i + 1][j];
-                    const z3 = grid[i][j + 1], z4 = grid[i + 1][j + 1];
-                    
-                    stl += generateTriangle([x1, y1, z1], [x2, y1, z2], [x1, y2, z3]);
-                    stl += generateTriangle([x2, y1, z2], [x2, y2, z4], [x1, y2, z3]);
-                }
-            }
-            
-            // Base
-            stl += generateTriangle([0, 0, 0], [modelSize, 0, 0], [0, modelSize, 0]);
-            stl += generateTriangle([modelSize, 0, 0], [modelSize, modelSize, 0], [0, modelSize, 0]);
-            
-<<<<<<< HEAD
-            stl += `endsolid ${currentDataSource}_terrain\n`;
-=======
-            // Side walls
-            const wallSteps = Math.min(resolution, 100);
-            const wallStep = modelSize / wallSteps;
-            
-            // Front wall
-            for (let i = 0; i < wallSteps; i++) {
-                const x1 = i * wallStep;
-                const x2 = (i + 1) * wallStep;
-                const gridI1 = Math.floor((i / wallSteps) * resolution);
-                const gridI2 = Math.floor(((i + 1) / wallSteps) * resolution);
-                const z1 = grid[gridI1][0];
-                const z2 = grid[gridI2][0];
-                
-                stl += generateTriangle([x1, 0, 0], [x1, 0, z1], [x2, 0, 0]);
-                stl += generateTriangle([x2, 0, 0], [x1, 0, z1], [x2, 0, z2]);
-            }
-            
-            // Back wall
-            for (let i = 0; i < wallSteps; i++) {
-                const x1 = i * wallStep;
-                const x2 = (i + 1) * wallStep;
-                const gridI1 = Math.floor((i / wallSteps) * resolution);
-                const gridI2 = Math.floor(((i + 1) / wallSteps) * resolution);
-                const z1 = grid[gridI1][resolution];
-                const z2 = grid[gridI2][resolution];
-                
-                stl += generateTriangle([x1, modelSize, 0], [x2, modelSize, 0], [x1, modelSize, z1]);
-                stl += generateTriangle([x2, modelSize, 0], [x2, modelSize, z2], [x1, modelSize, z1]);
-            }
-            
-            // Left wall
-            for (let j = 0; j < wallSteps; j++) {
-                const y1 = j * wallStep;
-                const y2 = (j + 1) * wallStep;
-                const gridJ1 = Math.floor((j / wallSteps) * resolution);
-                const gridJ2 = Math.floor(((j + 1) / wallSteps) * resolution);
-                const z1 = grid[0][gridJ1];
-                const z2 = grid[0][gridJ2];
-                
-                stl += generateTriangle([0, y1, 0], [0, y2, 0], [0, y1, z1]);
-                stl += generateTriangle([0, y2, 0], [0, y2, z2], [0, y1, z1]);
-            }
-            
-            // Right wall
-            for (let j = 0; j < wallSteps; j++) {
-                const y1 = j * wallStep;
-                const y2 = (j + 1) * wallStep;
-                const gridJ1 = Math.floor((j / wallSteps) * resolution);
-                const gridJ2 = Math.floor(((j + 1) / wallSteps) * resolution);
-                const z1 = grid[resolution][gridJ1];
-                const z2 = grid[resolution][gridJ2];
-                
-                stl += generateTriangle([modelSize, y1, 0], [modelSize, y1, z1], [modelSize, y2, 0]);
-                stl += generateTriangle([modelSize, y2, 0], [modelSize, y1, z1], [modelSize, y2, z2]);
-            }
-            
-            stl += `endsolid terrain_${resolution}x${resolution}\n`;
->>>>>>> parent of 62f4b13 (Update index.html)
-            return stl;
-        }
-
-        function generateTriangle(v1, v2, v3) {
-            // Calculate normal
-            const u = [v2[0] - v1[0], v2[1] - v1[1], v2[2] - v1[2]];
-            const v = [v3[0] - v1[0], v3[1] - v1[1], v3[2] - v1[2]];
-            
-            const normal = [
-                u[1] * v[2] - u[2] * v[1],
-                u[2] * v[0] - u[0] * v[2],
-                u[0] * v[1] - u[1] * v[0]
-            ];
-            
-            const length = Math.sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
-            if (length > 0) {
-                normal[0] /= length;
-                normal[1] /= length;
-                normal[2] /= length;
-            }
-            
-            return `  facet normal ${normal[0].toFixed(6)} ${normal[1].toFixed(6)} ${normal[2].toFixed(6)}\n` +
-                   `    outer loop\n` +
-                   `      vertex ${v1[0].toFixed(6)} ${v1[1].toFixed(6)} ${v1[2].toFixed(6)}\n` +
-                   `      vertex ${v2[0].toFixed(6)} ${v2[1].toFixed(6)} ${v2[2].toFixed(6)}\n` +
-                   `      vertex ${v3[0].toFixed(6)} ${v3[1].toFixed(6)} ${v3[2].toFixed(6)}\n` +
-                   `    endloop\n` +
-                   `  endfacet\n`;
-        }
-
-        function downloadSTL(stlContent, resolution, source) {
-            const blob = new Blob([stlContent], { type: 'application/octet-stream' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-<<<<<<< HEAD
-            a.download = `terrain_${source}_${resolution}x${resolution}_${Date.now()}.stl`;
-=======
-            
-            const timestamp = new Date().toISOString().slice(0, 16).replace(/[T:]/g, '_');
-            const fileSize = (stlContent.length / 1024 / 1024).toFixed(1);
-            
-            a.download = `terrain_${currentMapService}_${resolution}x${resolution}_${timestamp}.stl`;
->>>>>>> parent of 62f4b13 (Update index.html)
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
-
-<<<<<<< HEAD
-        // Initialize
-        showStatus('Select a data source from the top-right dropdown to get started.', 'info');
-        updateInfo();
-        onDataSourceChange(); // Initialize with default source
-=======
-        // Initialize the application
-        function init() {
-            console.log('🏔️ Fixed Ultra HD Terrain Generator Loaded');
-            console.log('🗺️ Map services: OpenStreetMap (free), Google Maps, Mapbox');
-            console.log('🎯 Resolutions: 50×50 to 2000×2000 points');
-            
-            showStatus('Select a map service above and click the load button to get started.', 'info');
-        }
-
-        // Run initialization
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', init);
-        } else {
-            init();
-        }
->>>>>>> parent of 62f4b13 (Update index.html)
-    </script>
-</body>
-</html>
+                    locations.
