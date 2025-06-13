@@ -3,12 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<<<<<<< HEAD
     <title>Multi-Source Terrain Generator</title>
+=======
+    <title>Fixed Ultra HD Terrain Generator</title>
+>>>>>>> parent of 62f4b13 (Update index.html)
     <style>
         body {
             font-family: Arial, sans-serif;
             margin: 0;
+<<<<<<< HEAD
             padding: 0;
+=======
+            padding: 20px;
+>>>>>>> parent of 62f4b13 (Update index.html)
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             color: #333;
@@ -193,6 +201,7 @@
             transition: width 0.3s ease;
         }
         
+<<<<<<< HEAD
         .info-box {
             background: #f0f8ff;
             border: 1px solid #b3d9ff;
@@ -253,10 +262,13 @@
             font-size: 0.85rem;
         }
         
+=======
+>>>>>>> parent of 62f4b13 (Update index.html)
         @media (max-width: 768px) {
             .main-content {
                 grid-template-columns: 1fr;
             }
+<<<<<<< HEAD
             
             #map {
                 height: 400px;
@@ -266,6 +278,8 @@
                 flex-direction: column;
                 gap: 10px;
             }
+=======
+>>>>>>> parent of 62f4b13 (Update index.html)
         }
     </style>
 </head>
@@ -286,8 +300,13 @@
 
     <div class="container">
         <div class="header">
+<<<<<<< HEAD
             <h1>🌍 Multi-Source Terrain Generator</h1>
             <p>Generate 3D terrain models from multiple elevation data sources</p>
+=======
+            <h1>🏔️ Ultra HD Terrain Generator</h1>
+            <p>Generate high-resolution 3D terrain models from elevation data</p>
+>>>>>>> parent of 62f4b13 (Update index.html)
         </div>
 
         <div class="main-content">
@@ -296,6 +315,7 @@
             </div>
 
             <div class="controls">
+<<<<<<< HEAD
                 <div id="sourceInfo" class="info-box">
                     <strong>📊 Google Maps API</strong><br>
                     High-quality global elevation data with ElevationService. Requires API key but offers excellent coverage and accuracy.
@@ -322,6 +342,15 @@
                     3. Draw rectangle to select area<br>
                     4. Choose resolution and settings<br>
                     5. Generate 3D model
+=======
+                <div class="info-box">
+                    <strong>🚀 Ultra HD Features:</strong><br>
+                    • Multiple map services available<br>
+                    • Ultra-high resolution up to 2000×2000<br>
+                    • Real-time processing estimates<br>
+                    • Professional 3D model generation<br>
+                    • STL files ready for 3D printing
+>>>>>>> parent of 62f4b13 (Update index.html)
                 </div>
 
                 <div class="selection-info" id="selectionInfo">
@@ -331,6 +360,7 @@
                 </div>
 
                 <div class="control-group">
+<<<<<<< HEAD
                     <label for="resolution">Resolution:</label>
                     <select id="resolution" onchange="updateInfo()">
                         <option value="20">20×20 (441 points)</option>
@@ -344,6 +374,17 @@
                     <div id="resolutionWarning" class="source-info">
                         Resolution limits vary by data source. Some open-source APIs may have lower rate limits.
                     </div>
+=======
+                    <label for="resolution">🎯 Resolution:</label>
+                    <select id="resolution">
+                        <option value="50">50×50 (Fast - 2.5K points)</option>
+                        <option value="100" selected>100×100 (Good - 10K points)</option>
+                        <option value="200">200×200 (High - 40K points)</option>
+                        <option value="500">500×500 (Ultra - 250K points)</option>
+                        <option value="1000">1000×1000 (Extreme - 1M points)</option>
+                        <option value="2000">2000×2000 (Maximum - 4M points)</option>
+                    </select>
+>>>>>>> parent of 62f4b13 (Update index.html)
                 </div>
 
                 <div class="control-group">
@@ -365,7 +406,11 @@
                 </div>
 
                 <div class="progress-container" id="progressContainer">
+<<<<<<< HEAD
                     <div><strong id="progressTitle">Processing...</strong></div>
+=======
+                    <div><strong id="progressTitle">Processing Ultra HD Terrain...</strong></div>
+>>>>>>> parent of 62f4b13 (Update index.html)
                     <div class="progress-bar">
                         <div class="progress-fill" id="progressFill"></div>
                     </div>
@@ -385,8 +430,13 @@
         let map, rectangle, selectedBounds = null;
         let mapLoaded = false;
         let isProcessing = false;
+<<<<<<< HEAD
         let elevationService = null;
         let currentDataSource = 'google';
+=======
+        let processingStartTime = null;
+        let drawingRectangle = null;
+>>>>>>> parent of 62f4b13 (Update index.html)
 
         const dataSources = {
             google: {
@@ -453,6 +503,7 @@
             const apiKeyGroup = document.getElementById('apiKeyGroup');
             const openSourceGroup = document.getElementById('openSourceGroup');
             
+<<<<<<< HEAD
             if (sourceConfig.requiresKey) {
                 apiKeyGroup.classList.add('active');
                 openSourceGroup.classList.remove('active');
@@ -488,6 +539,15 @@
                 container.classList.add('active');
                 document.getElementById('progressFill').style.width = progress + '%';
                 document.getElementById('progressText').textContent = text;
+=======
+            // Load Leaflet dynamically
+            if (!window.L) {
+                loadLeaflet().then(() => {
+                    initLeafletMap();
+                }).catch(error => {
+                    showStatus('Failed to load map library: ' + error.message, 'error');
+                });
+>>>>>>> parent of 62f4b13 (Update index.html)
             } else {
                 container.classList.remove('active');
             }
@@ -503,10 +563,17 @@
             showStatus('Loading Google Maps...', 'info');
             
             const script = document.createElement('script');
+<<<<<<< HEAD
             script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=drawing&callback=initGoogleMap`;
             script.onerror = () => showStatus('Failed to load Google Maps. Check your API key.', 'error');
             
             window.initGoogleMap = initGoogleMap;
+=======
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=drawing&callback=initGoogleMapCallback`;
+            script.onerror = () => {
+                showStatus('Failed to load Google Maps. Check your API key.', 'error');
+            };
+>>>>>>> parent of 62f4b13 (Update index.html)
             document.head.appendChild(script);
         }
 
@@ -531,8 +598,12 @@
 
         function initGoogleMap() {
             try {
+<<<<<<< HEAD
                 showStatus('Google Maps loaded! Draw a rectangle to select terrain area.', 'success');
                 mapLoaded = true;
+=======
+                document.getElementById('map').innerHTML = '';
+>>>>>>> parent of 62f4b13 (Update index.html)
                 
                 // Osaka, Japan coordinates: 34.6937, 135.5023
                 map = new google.maps.Map(document.getElementById('map'), {
@@ -541,8 +612,11 @@
                     mapTypeId: 'terrain'
                 });
 
+<<<<<<< HEAD
                 elevationService = new google.maps.ElevationService();
 
+=======
+>>>>>>> parent of 62f4b13 (Update index.html)
                 const drawingManager = new google.maps.drawing.DrawingManager({
                     drawingMode: google.maps.drawing.OverlayType.RECTANGLE,
                     drawingControl: true,
@@ -561,6 +635,7 @@
 
                 drawingManager.setMap(map);
 
+<<<<<<< HEAD
                 drawingManager.addListener('rectanglecomplete', function(rect) {
                     if (rectangle) rectangle.setMap(null);
                     rectangle = rect;
@@ -586,12 +661,70 @@
 
                 hideLoadButtons();
 
+=======
+                drawingManager.addListener('rectanglecomplete', function(rectangle) {
+                    if (drawingRectangle) drawingRectangle.setMap(null);
+                    drawingRectangle = rectangle;
+                    
+                    selectedBounds = {
+                        north: rectangle.getBounds().getNorthEast().lat(),
+                        south: rectangle.getBounds().getSouthWest().lat(),
+                        east: rectangle.getBounds().getNorthEast().lng(),
+                        west: rectangle.getBounds().getSouthWest().lng()
+                    };
+                    
+                    updateSelection();
+                });
+                
+                mapLoaded = true;
+                showStatus('✅ Google Maps loaded! Use drawing tools to select terrain area.', 'success');
+                updateControls();
+                
+>>>>>>> parent of 62f4b13 (Update index.html)
             } catch (error) {
                 showStatus('Error initializing Google Maps: ' + error.message, 'error');
             }
         }
 
+<<<<<<< HEAD
         function initOpenSourceMap() {
+=======
+        function loadMapboxMap() {
+            const accessToken = document.getElementById('mapboxApiKey').value.trim();
+            if (!accessToken) {
+                showStatus('Please enter your Mapbox access token.', 'error');
+                return;
+            }
+            
+            showStatus('Loading Mapbox...', 'info');
+            
+            // Load Mapbox GL JS
+            loadMapboxGL().then(() => {
+                initMapboxMap(accessToken);
+            }).catch(error => {
+                showStatus('Failed to load Mapbox: ' + error.message, 'error');
+            });
+        }
+
+        function loadMapboxGL() {
+            return new Promise((resolve, reject) => {
+                // Load CSS
+                const css = document.createElement('link');
+                css.href = 'https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css';
+                css.rel = 'stylesheet';
+                document.head.appendChild(css);
+                
+                // Load JS
+                const script = document.createElement('script');
+                script.src = 'https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js';
+                script.onload = resolve;
+                script.onerror = () => reject(new Error('Failed to load Mapbox GL'));
+                document.head.appendChild(script);
+            });
+        }
+
+        function initMapboxMap(accessToken) {
+>>>>>>> parent of 62f4b13 (Update index.html)
             try {
                 showStatus('OpenStreetMap loaded! Draw a rectangle to select terrain area.', 'success');
                 mapLoaded = true;
@@ -663,6 +796,7 @@
             document.querySelector('label[for="apiKey"]').style.display = 'none';
         }
 
+<<<<<<< HEAD
         function updateSelectionInfo() {
             const info = document.getElementById('selectionInfo');
             if (selectedBounds) {
@@ -683,11 +817,32 @@
                     `Area: ${area.toFixed(6)} sq° ${areaClass}`;
                 
                 info.style.display = 'block';
+=======
+        function updateControls() {
+            const generateBtn = document.getElementById('generateBtn');
+            generateBtn.disabled = !(mapLoaded && selectedBounds && !isProcessing);
+        }
+
+        function showStatus(message, type = 'info') {
+            const status = document.getElementById('status');
+            status.className = `status ${type}`;
+            status.textContent = message;
+        }
+
+        function showProgress(show, progress = 0, text = '', eta = '') {
+            const container = document.getElementById('progressContainer');
+            if (show) {
+                container.classList.add('active');
+                document.getElementById('progressFill').style.width = progress + '%';
+                document.getElementById('progressText').textContent = text;
+                document.getElementById('etaText').textContent = eta;
+>>>>>>> parent of 62f4b13 (Update index.html)
             } else {
                 info.style.display = 'none';
             }
         }
 
+<<<<<<< HEAD
         function updateInfo() {
             const resolution = parseInt(document.getElementById('resolution').value);
             const points = (resolution + 1) * (resolution + 1);
@@ -1034,6 +1189,22 @@
             }
             
             return elevationData;
+=======
+        function formatTime(seconds) {
+            if (seconds < 60) return `${Math.round(seconds)}s`;
+            if (seconds < 3600) return `${Math.round(seconds / 60)}m ${Math.round(seconds % 60)}s`;
+            return `${Math.round(seconds / 3600)}h ${Math.round((seconds % 3600) / 60)}m`;
+        }
+
+        function calculateETA(startTime, currentProgress) {
+            if (!startTime || currentProgress <= 0) return '';
+            
+            const elapsed = (Date.now() - startTime) / 1000;
+            const rate = currentProgress / elapsed;
+            const remaining = (100 - currentProgress) / rate;
+            
+            return `ETA: ${formatTime(remaining)} (${formatTime(elapsed)} elapsed)`;
+>>>>>>> parent of 62f4b13 (Update index.html)
         }
 
         async function generateModel() {
@@ -1048,6 +1219,7 @@
             isProcessing = true;
 
             try {
+<<<<<<< HEAD
                 const sourceConfig = dataSources[currentDataSource];
                 showStatus(`Starting terrain generation with ${sourceConfig.name}...`, 'info');
                 showProgress(true, 5, 'Initializing...');
@@ -1063,6 +1235,15 @@
                 const elevationData = await fetchElevationData(selectedBounds, resolution);
 
                 showProgress(true, 85, 'Creating 3D model...');
+=======
+                showStatus(`🚀 Starting terrain generation: ${resolution}×${resolution}`, 'info');
+                showProgress(true, 5, 'Initializing processing...', '');
+
+                // Generate elevation data
+                const elevationData = await generateElevationData(selectedBounds, resolution);
+
+                showProgress(true, 85, 'Creating 3D model...', '');
+>>>>>>> parent of 62f4b13 (Update index.html)
 
                 // Generate STL
                 const stlContent = generateSTL(elevationData, resolution);
@@ -1070,12 +1251,20 @@
                 showProgress(true, 95, 'Preparing download...');
                 
                 // Download file
+<<<<<<< HEAD
                 downloadSTL(stlContent, resolution, currentDataSource);
                 
                 showProgress(true, 100, 'Complete!');
+=======
+                downloadSTL(stlContent, resolution);
+>>>>>>> parent of 62f4b13 (Update index.html)
                 
                 showStatus(
+<<<<<<< HEAD
                     `✅ Model generated successfully using ${sourceConfig.name}! ${elevationData.length} points processed.`,
+=======
+                    `✅ Model generated! ${elevationData.length.toLocaleString()} points processed in ${formatTime(processingTime)}`,
+>>>>>>> parent of 62f4b13 (Update index.html)
                     'success'
                 );
 
@@ -1084,6 +1273,7 @@
             } catch (error) {
                 console.error('Error:', error);
                 showProgress(false);
+<<<<<<< HEAD
                 
                 let errorMessage = error.message;
                 if (error.message.includes('Rate limit') || error.message.includes('OVER_QUERY_LIMIT')) {
@@ -1095,6 +1285,9 @@
                 }
                 
                 showStatus('Error: ' + errorMessage, 'error');
+=======
+                showStatus('❌ Error: ' + error.message, 'error');
+>>>>>>> parent of 62f4b13 (Update index.html)
             } finally {
                 isProcessing = false;
                 generateBtn.disabled = false;
@@ -1133,8 +1326,13 @@
                 }
             }
 
+<<<<<<< HEAD
             // Generate STL
             let stl = `solid ${currentDataSource}_terrain\n`;
+=======
+            // Generate STL content
+            let stl = `solid terrain_${resolution}x${resolution}\n`;
+>>>>>>> parent of 62f4b13 (Update index.html)
             const step = modelSize / resolution;
             
             // Surface triangles
@@ -1155,7 +1353,67 @@
             stl += generateTriangle([0, 0, 0], [modelSize, 0, 0], [0, modelSize, 0]);
             stl += generateTriangle([modelSize, 0, 0], [modelSize, modelSize, 0], [0, modelSize, 0]);
             
+<<<<<<< HEAD
             stl += `endsolid ${currentDataSource}_terrain\n`;
+=======
+            // Side walls
+            const wallSteps = Math.min(resolution, 100);
+            const wallStep = modelSize / wallSteps;
+            
+            // Front wall
+            for (let i = 0; i < wallSteps; i++) {
+                const x1 = i * wallStep;
+                const x2 = (i + 1) * wallStep;
+                const gridI1 = Math.floor((i / wallSteps) * resolution);
+                const gridI2 = Math.floor(((i + 1) / wallSteps) * resolution);
+                const z1 = grid[gridI1][0];
+                const z2 = grid[gridI2][0];
+                
+                stl += generateTriangle([x1, 0, 0], [x1, 0, z1], [x2, 0, 0]);
+                stl += generateTriangle([x2, 0, 0], [x1, 0, z1], [x2, 0, z2]);
+            }
+            
+            // Back wall
+            for (let i = 0; i < wallSteps; i++) {
+                const x1 = i * wallStep;
+                const x2 = (i + 1) * wallStep;
+                const gridI1 = Math.floor((i / wallSteps) * resolution);
+                const gridI2 = Math.floor(((i + 1) / wallSteps) * resolution);
+                const z1 = grid[gridI1][resolution];
+                const z2 = grid[gridI2][resolution];
+                
+                stl += generateTriangle([x1, modelSize, 0], [x2, modelSize, 0], [x1, modelSize, z1]);
+                stl += generateTriangle([x2, modelSize, 0], [x2, modelSize, z2], [x1, modelSize, z1]);
+            }
+            
+            // Left wall
+            for (let j = 0; j < wallSteps; j++) {
+                const y1 = j * wallStep;
+                const y2 = (j + 1) * wallStep;
+                const gridJ1 = Math.floor((j / wallSteps) * resolution);
+                const gridJ2 = Math.floor(((j + 1) / wallSteps) * resolution);
+                const z1 = grid[0][gridJ1];
+                const z2 = grid[0][gridJ2];
+                
+                stl += generateTriangle([0, y1, 0], [0, y2, 0], [0, y1, z1]);
+                stl += generateTriangle([0, y2, 0], [0, y2, z2], [0, y1, z1]);
+            }
+            
+            // Right wall
+            for (let j = 0; j < wallSteps; j++) {
+                const y1 = j * wallStep;
+                const y2 = (j + 1) * wallStep;
+                const gridJ1 = Math.floor((j / wallSteps) * resolution);
+                const gridJ2 = Math.floor(((j + 1) / wallSteps) * resolution);
+                const z1 = grid[resolution][gridJ1];
+                const z2 = grid[resolution][gridJ2];
+                
+                stl += generateTriangle([modelSize, y1, 0], [modelSize, y1, z1], [modelSize, y2, 0]);
+                stl += generateTriangle([modelSize, y2, 0], [modelSize, y1, z1], [modelSize, y2, z2]);
+            }
+            
+            stl += `endsolid terrain_${resolution}x${resolution}\n`;
+>>>>>>> parent of 62f4b13 (Update index.html)
             return stl;
         }
 
@@ -1191,17 +1449,43 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
+<<<<<<< HEAD
             a.download = `terrain_${source}_${resolution}x${resolution}_${Date.now()}.stl`;
+=======
+            
+            const timestamp = new Date().toISOString().slice(0, 16).replace(/[T:]/g, '_');
+            const fileSize = (stlContent.length / 1024 / 1024).toFixed(1);
+            
+            a.download = `terrain_${currentMapService}_${resolution}x${resolution}_${timestamp}.stl`;
+>>>>>>> parent of 62f4b13 (Update index.html)
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
         }
 
+<<<<<<< HEAD
         // Initialize
         showStatus('Select a data source from the top-right dropdown to get started.', 'info');
         updateInfo();
         onDataSourceChange(); // Initialize with default source
+=======
+        // Initialize the application
+        function init() {
+            console.log('🏔️ Fixed Ultra HD Terrain Generator Loaded');
+            console.log('🗺️ Map services: OpenStreetMap (free), Google Maps, Mapbox');
+            console.log('🎯 Resolutions: 50×50 to 2000×2000 points');
+            
+            showStatus('Select a map service above and click the load button to get started.', 'info');
+        }
+
+        // Run initialization
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+>>>>>>> parent of 62f4b13 (Update index.html)
     </script>
 </body>
 </html>
