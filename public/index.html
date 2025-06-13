@@ -472,23 +472,24 @@
             const source = sources[currentDataSource];
             
             if (currentDataSource === 'opentopo') {
-                const apiKey = document.getElementById('opentopoApiKey') ? document.getElementById('opentopoApiKey').value.trim() : '';
+                const apiKeyInput = document.getElementById('opentopoApiKey');
+                const apiKey = apiKeyInput ? apiKeyInput.value.trim() : '';
                 const maxPoints = apiKey ? source.maxPointsWithKey : source.maxPoints;
                 const limitText = apiKey ? '5M (with API key)' : '25K (without API key)';
                 
-                document.getElementById('sourceInfo').innerHTML = `
-                    <strong>📊 ${source.name}</strong><br>
-                    ${source.description}<br>
-                    <strong>Max Points:</strong> ${limitText} | 
-                    <strong>Coverage:</strong> ${source.coverage}
-                `;
+                const infoHtml = '<strong>📊 ' + source.name + '</strong><br>' +
+                               source.description + '<br>' +
+                               '<strong>Max Points:</strong> ' + limitText + ' | ' +
+                               '<strong>Coverage:</strong> ' + source.coverage;
+                
+                document.getElementById('sourceInfo').innerHTML = infoHtml;
             } else {
-                document.getElementById('sourceInfo').innerHTML = `
-                    <strong>📊 ${source.name}</strong><br>
-                    ${source.description}<br>
-                    <strong>Max Points:</strong> ${source.maxPoints.toLocaleString()} | 
-                    <strong>Coverage:</strong> ${source.coverage}
-                `;
+                const infoHtml = '<strong>📊 ' + source.name + '</strong><br>' +
+                               source.description + '<br>' +
+                               '<strong>Max Points:</strong> ' + source.maxPoints.toLocaleString() + ' | ' +
+                               '<strong>Coverage:</strong> ' + source.coverage;
+                
+                document.getElementById('sourceInfo').innerHTML = infoHtml;
             }
         }
 
@@ -688,15 +689,23 @@
             // Check limits based on API key for OpenTopography
             let maxPoints = source.maxPoints;
             if (currentDataSource === 'opentopo') {
-                const apiKey = document.getElementById('opentopoApiKey').value.trim();
+                const apiKeyInput = document.getElementById('opentopoApiKey');
+                const apiKey = apiKeyInput ? apiKeyInput.value.trim() : '';
                 maxPoints = apiKey ? source.maxPointsWithKey : source.maxPoints;
             }
             
             if (totalPoints > maxPoints) {
-                const limitText = currentDataSource === 'opentopo' && document.getElementById('opentopoApiKey').value.trim() 
-                    ? '5M (with API key)' 
-                    : maxPoints.toLocaleString();
-                showStatus(`❌ Resolution too high for ${source.name}. Max ${limitText} points, requested ${totalPoints.toLocaleString()}.`, 'error');
+                let limitText;
+                if (currentDataSource === 'opentopo') {
+                    const apiKeyInput = document.getElementById('opentopoApiKey');
+                    const hasApiKey = apiKeyInput && apiKeyInput.value.trim();
+                    limitText = hasApiKey ? '5M (with API key)' : maxPoints.toLocaleString();
+                } else {
+                    limitText = maxPoints.toLocaleString();
+                }
+                
+                const errorMsg = 'Resolution too high for ' + source.name + '. Max ' + limitText + ' points, requested ' + totalPoints.toLocaleString() + '.';
+                showStatus('❌ ' + errorMsg, 'error');
                 return;
             }
 
@@ -754,22 +763,27 @@
                     const lat = bounds.south + (i * latStep);
                     const lng = bounds.west + (j * lngStep);
                     
+                    // Generate elevation for current data source
                     const elevation = generateElevationForSource(lat, lng);
                     elevationData.push({
                         elevation: elevation,
-                        location: { lat, lng }
+                        location: { lat: lat, lng: lng }
                     });
                     
                     processedPoints++;
                 }
                 
-                // Update progress
+                // Update progress periodically
                 if (i % Math.max(1, Math.floor(resolution / 20)) === 0) {
                     const progress = Math.round((processedPoints / totalPoints) * 80);
-                    showProgress(true, progress, 
-                        `${sources[currentDataSource].name}: ${processedPoints.toLocaleString()}/${totalPoints.toLocaleString()} points`);
+                    const sourceName = sources[currentDataSource].name;
+                    const progressText = sourceName + ': ' + processedPoints.toLocaleString() + '/' + totalPoints.toLocaleString() + ' points';
+                    showProgress(true, progress, progressText);
                     
-                    await new Promise(resolve => setTimeout(resolve, 1));
+                    // Small delay to keep UI responsive
+                    await new Promise(function(resolve) { 
+                        setTimeout(resolve, 1); 
+                    });
                 }
             }
             
@@ -787,6 +801,7 @@
                     return Math.max(0, Math.min(1000, baseElevation + google + googleLocal + googleNoise));
                     
                 case 'opentopo':
+                    // OpenTopography with enhanced SRTM characteristics
                     const srtm = Math.sin((lat - 34.6937) * 0.001 * 400) * Math.cos((lng - 135.5023) * 0.001 * 400) * 250;
                     const srtmRegional = Math.sin(lat * 0.01 * 150) * Math.cos(lng * 0.01 * 150) * 120;
                     const srtmDetail = Math.sin(lat * 0.1 * 80) * Math.cos(lng * 0.1 * 80) * 60;
