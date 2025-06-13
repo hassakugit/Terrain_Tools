@@ -430,24 +430,54 @@
         function initApp() {
             console.log('🏔️ Multi-Source Terrain Generator Loading...');
             
-            // Set up data source selector
+            // Set up data source selector with proper event handling
             const selector = document.getElementById('dataSource');
-            selector.addEventListener('change', function() {
-                currentDataSource = this.value;
-                updateDataSourceInfo();
-                updateMapControls();
-            });
+            
+            // Remove any existing listeners and add new one
+            selector.removeEventListener('change', handleDataSourceChange);
+            selector.addEventListener('change', handleDataSourceChange);
+            
+            // Also listen for input events as backup
+            selector.addEventListener('input', handleDataSourceChange);
             
             // Set up exaggeration slider
-            document.getElementById('exaggeration').addEventListener('input', function() {
+            const exagSlider = document.getElementById('exaggeration');
+            exagSlider.addEventListener('input', function() {
                 document.getElementById('exagValue').textContent = this.value + '×';
             });
             
             // Initialize with default source
+            currentDataSource = selector.value; // Get the actual selected value
             updateDataSourceInfo();
             updateMapControls();
             
-            showStatus('Ready! Select a data source and load the map.', 'info');
+            showStatus('Ready! Google Maps is selected. Enter your API key and load the map.', 'info');
+            console.log('✅ App initialized with Google Maps as default');
+        }
+
+        function handleDataSourceChange(event) {
+            const newSource = event.target.value;
+            console.log(`🔄 Data source changing from ${currentDataSource} to ${newSource}`);
+            
+            currentDataSource = newSource;
+            updateDataSourceInfo();
+            updateMapControls();
+            
+            // Reset map state
+            mapLoaded = false;
+            selectedBounds = null;
+            if (rectangle && map) {
+                map.removeLayer(rectangle);
+                rectangle = null;
+            }
+            
+            // Clear the map area
+            const mapDiv = document.getElementById('map');
+            mapDiv.innerHTML = '';
+            
+            updateGenerateButton();
+            
+            console.log(`✅ Successfully switched to ${dataSources[currentDataSource].name}`);
         }
 
         function updateDataSourceInfo() {
@@ -501,15 +531,128 @@
 
         function loadMap() {
             const sourceConfig = dataSources[currentDataSource];
+            console.log(`🗺️ Loading map for ${sourceConfig.name}`);
             
             // Check API key if required
             if (sourceConfig.requiresKey && currentDataSource !== 'opentopo') {
-                const apiKey = document.getElementById('apiKeyInput').value.trim();
+                const apiKeyInput = document.getElementById('apiKeyInput');
+                if (!apiKeyInput) {
+                    showStatus('Error: API key input not found. Try refreshing the page.', 'error');
+                    return;
+                }
+                
+                const apiKey = apiKeyInput.value.trim();
                 if (!apiKey) {
                     showStatus('Please enter your API key first.', 'error');
                     return;
                 }
+                
+                // For Google Maps, try to load the actual Google Maps API
+                if (currentDataSource === 'google') {
+                    loadGoogleMapsAPI(apiKey);
+                    return;
+                }
             }
+            
+            // For all other sources, load OpenStreetMap
+            loadOpenStreetMap();
+        }
+
+        function loadGoogleMapsAPI(apiKey) {
+            showStatus('Loading Google Maps API...', 'info');
+            
+            // Check if Google Maps is already loaded
+            if (window.google && window.google.maps) {
+                console.log('Google Maps already loaded, initializing...');
+                initGoogleMap();
+                return;
+            }
+            
+            // Create global callback
+            window.initGoogleMapCallback = function() {
+                console.log('Google Maps API loaded successfully');
+                initGoogleMap();
+            };
+            
+            // Load Google Maps script
+            const script = document.createElement('script');
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=drawing&callback=initGoogleMapCallback`;
+            script.async = true;
+            script.defer = true;
+            
+            script.onerror = function() {
+                console.error('Failed to load Google Maps API');
+                showStatus('Failed to load Google Maps. Please check your API key and internet connection.', 'error');
+            };
+            
+            // Remove any existing Google Maps scripts
+            const existingScripts = document.querySelectorAll('script[src*="maps.googleapis.com"]');
+            existingScripts.forEach(s => s.remove());
+            
+            document.head.appendChild(script);
+        }
+
+        function initGoogleMap() {
+            try {
+                console.log('Initializing Google Map...');
+                
+                // Clear existing map
+                document.getElementById('map').innerHTML = '';
+                
+                // Create Google Map
+                map = new google.maps.Map(document.getElementById('map'), {
+                    zoom: 10,
+                    center: { lat: 34.6937, lng: 135.5023 },
+                    mapTypeId: 'terrain'
+                });
+
+                // Set up drawing manager
+                const drawingManager = new google.maps.drawing.DrawingManager({
+                    drawingMode: google.maps.drawing.OverlayType.RECTANGLE,
+                    drawingControl: true,
+                    drawingControlOptions: {
+                        position: google.maps.ControlPosition.TOP_CENTER,
+                        drawingModes: ['rectangle']
+                    },
+                    rectangleOptions: {
+                        fillColor: '#667eea',
+                        fillOpacity: 0.3,
+                        strokeWeight: 2,
+                        strokeColor: '#667eea',
+                        editable: true
+                    }
+                });
+
+                drawingManager.setMap(map);
+
+                drawingManager.addListener('rectanglecomplete', function(rect) {
+                    if (rectangle) rectangle.setMap(null);
+                    rectangle = rect;
+                    
+                    selectedBounds = {
+                        north: rect.getBounds().getNorthEast().lat(),
+                        south: rect.getBounds().getSouthWest().lat(),
+                        east: rect.getBounds().getNorthEast().lng(),
+                        west: rect.getBounds().getSouthWest().lng()
+                    };
+                    
+                    updateSelection();
+                });
+
+                mapLoaded = true;
+                updateMapControlsLoaded();
+                showStatus('✅ Google Maps loaded! Use drawing tools to select terrain area.', 'success');
+                updateGenerateButton();
+                
+            } catch (error) {
+                console.error('Error initializing Google Map:', error);
+                showStatus('Error initializing Google Maps: ' + error.message, 'error');
+            }
+        }
+
+        function loadOpenStreetMap() {
+            const sourceConfig = dataSources[currentDataSource];
+            console.log(`Loading OpenStreetMap for ${sourceConfig.name}`);
             
             showStatus(`Loading map for ${sourceConfig.name}...`, 'info');
             
@@ -526,27 +669,32 @@
                 }).addTo(map);
                 
                 // Set up drawing
-                setupDrawing();
+                setupLeafletDrawing();
                 
                 mapLoaded = true;
-                
-                // Update controls
-                const controls = document.getElementById('mapControls');
-                controls.className = 'map-controls loaded';
-                document.getElementById('controlContent').innerHTML = `
-                    <strong>✅ Map Loaded - ${sourceConfig.name}</strong><br>
-                    Draw a rectangle on the map to select terrain area.
-                `;
-                
+                updateMapControlsLoaded();
                 showStatus(`✅ Map loaded! Draw a rectangle to select terrain area for ${sourceConfig.name}.`, 'success');
                 updateGenerateButton();
                 
             } catch (error) {
+                console.error('Error loading OpenStreetMap:', error);
                 showStatus('Error loading map: ' + error.message, 'error');
             }
         }
 
-        function setupDrawing() {
+        function updateMapControlsLoaded() {
+            const sourceConfig = dataSources[currentDataSource];
+            const controls = document.getElementById('mapControls');
+            const content = document.getElementById('controlContent');
+            
+            controls.className = 'map-controls loaded';
+            content.innerHTML = `
+                <strong>✅ Map Loaded - ${sourceConfig.name}</strong><br>
+                Draw a rectangle on the map to select terrain area.
+            `;
+        }
+
+        function setupLeafletDrawing() {
             let isDrawing = false;
             let startLatLng = null;
             let drawingRect = null;
