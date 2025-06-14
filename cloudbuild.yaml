@@ -1,6 +1,6 @@
-# Cloud Build configuration with no logging
+# Cloud Build configuration for long-running terrain jobs
 steps:
-  # Build and deploy directly to Cloud Run
+  # Build and deploy to Cloud Run with extended timeouts
   - name: 'gcr.io/cloud-builders/gcloud'
     args:
       - 'run'
@@ -11,10 +11,13 @@ steps:
       - '--platform=managed'
       - '--allow-unauthenticated'
       - '--port=2021'
-      - '--memory=1Gi'
-      - '--cpu=1'
-      - '--max-instances=10'
-      - '--set-env-vars=NODE_ENV=production'
+      - '--timeout=3600'           # 1 hour timeout (max for Cloud Run)
+      - '--memory=8Gi'             # 8GB memory for large datasets
+      - '--cpu=4'                  # 4 CPUs for faster processing
+      - '--max-instances=3'        # Allow scaling but limit costs
+      - '--min-instances=0'        # Scale to zero when not used
+      - '--concurrency=1'          # Only 1 request per instance
+      - '--set-env-vars=NODE_ENV=production,MAX_RESOLUTION=5000'
 
 # Use NONE logging to avoid service account issues
 options:
