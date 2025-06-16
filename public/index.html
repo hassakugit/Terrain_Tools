@@ -495,24 +495,45 @@
     </div>
 
     <script>
+        // Global variables
         let map, rectangle, selectedBounds = null;
         let mapLoaded = false;
         let currentJobId = null;
         let jobStatusInterval = null;
         let trackedJobs = new Set();
 
+        // Ensure all functions are globally accessible
+        window.loadMap = loadMap;
+        window.trackJobById = trackJobById;
+        window.startCloudRunJob = startCloudRunJob;
+        window.trackExistingJob = trackExistingJob;
+        window.removeJob = removeJob;
+        window.copyJobId = copyJobId;
+        window.shareJobLink = shareJobLink;
+        window.updateEstimates = updateEstimates;
+        window.initGoogleMap = initGoogleMap;
+
         // Load jobs from localStorage
         function loadTrackedJobs() {
-            const saved = localStorage.getItem('cloudRunJobs');
-            if (saved) {
-                trackedJobs = new Set(JSON.parse(saved));
-                updateJobList();
+            try {
+                const saved = localStorage.getItem('cloudRunJobs');
+                if (saved) {
+                    trackedJobs = new Set(JSON.parse(saved));
+                    updateJobList();
+                }
+            } catch (error) {
+                console.error('Error loading tracked jobs:', error);
+                trackedJobs = new Set();
             }
         }
 
         // Save jobs to localStorage
         function saveTrackedJobs() {
-            localStorage.setItem('cloudRunJobs', JSON.stringify([...trackedJobs]));
+            try {
+                localStorage.setItem('cloudRunJobs', JSON.stringify([...trackedJobs]));
+            } catch (error) {
+                console.error('Error saving tracked jobs:', error);
+            }
         }
 
         function updateEstimates() {
@@ -573,6 +594,7 @@
         }
 
         function loadMap() {
+            console.log('loadMap function called');
             const apiKey = document.getElementById('googleKey').value.trim();
             
             if (!apiKey) {
@@ -582,57 +604,84 @@
 
             showStatus('Loading Google Maps...', 'info');
             
-            const script = document.createElement('script');
-            script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=drawing&callback=initGoogleMap`;
-            script.onerror = () => showStatus('Failed to load Google Maps. Check your API key.', 'error');
+            // Set up error handling for Google Maps
+            window.gm_authFailure = function() {
+                showStatus('❌ Google Maps API authentication failed. Check your API key and make sure Maps JavaScript API is enabled.', 'error');
+            };
             
-            window.initGoogleMap = initGoogleMap;
+            // Remove any existing Google Maps scripts
+            const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
+            if (existingScript) {
+                existingScript.remove();
+            }
+            
+            const script = document.createElement('script');
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=drawing&callback=initGoogleMap&v=weekly`;
+            script.async = true;
+            script.defer = true;
+            
+            script.onerror = function() {
+                showStatus('❌ Failed to load Google Maps script. Check your internet connection and API key.', 'error');
+            };
+            
+            // Timeout after 10 seconds
+            const timeout = setTimeout(() => {
+                showStatus('❌ Google Maps loading timeout. Please check your API key and try again.', 'error');
+            }, 10000);
+            
+            window.initGoogleMap = function() {
+                clearTimeout(timeout);
+                initGoogleMapActual();
+            };
+            
             document.head.appendChild(script);
         }
 
-        function initGoogleMap() {
+        function initGoogleMapActual() {
             try {
+                console.log('Initializing Google Maps...');
+                
+                // Check if Google Maps loaded properly
+                if (typeof google === 'undefined' || !google.maps) {
+                    throw new Error('Google Maps API not loaded properly');
+                }
+                
                 showStatus('Google Maps loaded! Draw a rectangle to select terrain area.', 'success');
                 mapLoaded = true;
                 
                 map = new google.maps.Map(document.getElementById('map'), {
                     zoom: 10,
-                    center: { lat: 34.6937, lng: 135.5023 },
-                    mapTypeId: 'terrain'
+                    center: { lat: 34.6937, lng: 135.5023 }, // Osaka, Japan
+                    mapTypeId: 'terrain',
+                    gestureHandling: 'greedy'
                 });
 
-                const drawingManager = new google.maps.drawing.DrawingManager({
-                    drawingMode: google.maps.drawing.OverlayType.RECTANGLE,
-                    drawingControl: true,
-                    drawingControlOptions: {
-                        position: google.maps.ControlPosition.TOP_CENTER,
-                        drawingModes: ['rectangle']
-                    },
-                    rectangleOptions: {
-                        fillColor: '#4285f4',
-                        fillOpacity: 0.3,
-                        strokeWeight: 2,
-                        strokeColor: '#4285f4',
-                        editable: true
-                    }
-                });
+                // Wait for map to be fully loaded
+                google.maps.event.addListenerOnce(map, 'idle', function() {
+                    console.log('Map fully loaded and ready');
+                    
+                    const drawingManager = new google.maps.drawing.DrawingManager({
+                        drawingMode: google.maps.drawing.OverlayType.RECTANGLE,
+                        drawingControl: true,
+                        drawingControlOptions: {
+                            position: google.maps.ControlPosition.TOP_CENTER,
+                            drawingModes: ['rectangle']
+                        },
+                        rectangleOptions: {
+                            fillColor: '#4285f4',
+                            fillOpacity: 0.3,
+                            strokeWeight: 2,
+                            strokeColor: '#4285f4',
+                            editable: true
+                        }
+                    });
 
-                drawingManager.setMap(map);
+                    drawingManager.setMap(map);
 
-                drawingManager.addListener('rectanglecomplete', function(rect) {
-                    if (rectangle) rectangle.setMap(null);
-                    rectangle = rect;
-                    selectedBounds = {
-                        north: rect.getBounds().getNorthEast().lat(),
-                        south: rect.getBounds().getSouthWest().lat(),
-                        east: rect.getBounds().getNorthEast().lng(),
-                        west: rect.getBounds().getSouthWest().lng()
-                    };
-                    updateSelectionInfo();
-                    updateEstimates();
-                    checkGenerateButton();
-
-                    rect.addListener('bounds_changed', function() {
+                    drawingManager.addListener('rectanglecomplete', function(rect) {
+                        console.log('Rectangle drawn');
+                        if (rectangle) rectangle.setMap(null);
+                        rectangle = rect;
                         selectedBounds = {
                             north: rect.getBounds().getNorthEast().lat(),
                             south: rect.getBounds().getSouthWest().lat(),
@@ -641,13 +690,32 @@
                         };
                         updateSelectionInfo();
                         updateEstimates();
+                        checkGenerateButton();
+
+                        rect.addListener('bounds_changed', function() {
+                            selectedBounds = {
+                                north: rect.getBounds().getNorthEast().lat(),
+                                south: rect.getBounds().getSouthWest().lat(),
+                                east: rect.getBounds().getNorthEast().lng(),
+                                west: rect.getBounds().getSouthWest().lng()
+                            };
+                            updateSelectionInfo();
+                            updateEstimates();
+                        });
                     });
+
+                    document.getElementById('loadBtn').style.display = 'none';
+                    showStatus('✅ Map ready! Click the rectangle tool and draw an area to select terrain.', 'success');
                 });
 
-                document.getElementById('loadBtn').style.display = 'none';
-
             } catch (error) {
-                showStatus('Error initializing Google Maps: ' + error.message, 'error');
+                console.error('Google Maps initialization error:', error);
+                showStatus('❌ Error initializing Google Maps: ' + error.message, 'error');
+                
+                // Provide helpful troubleshooting info
+                setTimeout(() => {
+                    showStatus('💡 Troubleshooting: 1) Check API key, 2) Enable Maps JavaScript API, 3) Enable Elevation API', 'info');
+                }, 3000);
             }
         }
 
