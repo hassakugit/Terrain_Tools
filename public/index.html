@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hybrid Terrain Generator</title>
+    <title>Cloud Run Terrain Generator</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -29,21 +29,17 @@
             font-weight: bold;
         }
         
-        .processing-mode {
-            background: white;
+        .job-tracker-mini {
+            background: rgba(255,255,255,0.2);
             border-radius: 6px;
             padding: 8px 12px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            color: white;
+            font-size: 0.9rem;
+            display: none;
         }
         
-        .processing-mode select {
-            border: none;
-            background: none;
-            font-size: 14px;
-            font-weight: 500;
-            color: #333;
-            cursor: pointer;
-            outline: none;
+        .job-tracker-mini.active {
+            display: block;
         }
         
         .container {
@@ -64,6 +60,15 @@
         .header h1 {
             color: #667eea;
             margin-bottom: 10px;
+        }
+        
+        .cloud-run-info {
+            background: #e3f2fd;
+            border: 2px solid #2196f3;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
         }
         
         .main-content {
@@ -137,12 +142,12 @@
             cursor: not-allowed;
         }
         
-        .button.server-mode {
-            background: #28a745;
+        .button.cloud-run {
+            background: #4285f4;
         }
         
-        .button.server-mode:hover {
-            background: #218838;
+        .button.cloud-run:hover {
+            background: #3367d6;
         }
         
         .button.cancel {
@@ -190,7 +195,7 @@
             padding: 20px;
             border-radius: 8px;
             margin: 20px 0;
-            border: 2px solid #667eea;
+            border: 2px solid #4285f4;
         }
         
         .progress-container.active {
@@ -208,13 +213,9 @@
         
         .progress-fill {
             height: 100%;
-            background: linear-gradient(90deg, #667eea, #764ba2);
+            background: linear-gradient(90deg, #4285f4, #667eea);
             width: 0%;
             transition: width 0.3s ease;
-        }
-        
-        .server-progress-fill {
-            background: linear-gradient(90deg, #28a745, #20c997);
         }
         
         .progress-details {
@@ -223,38 +224,60 @@
             margin-top: 10px;
         }
         
-        .processing-mode-info {
-            background: #e8f5e8;
-            border: 1px solid #c3e6cb;
-            border-radius: 6px;
-            padding: 15px;
-            margin: 15px 0;
+        .job-manager {
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
         }
         
-        .server-mode-info {
-            background: #d4edda;
-            border: 1px solid #c3e6cb;
-            border-radius: 6px;
-            padding: 15px;
-            margin: 15px 0;
-            color: #155724;
+        .job-list {
+            max-height: 200px;
+            overflow-y: auto;
         }
         
-        .client-mode-info {
-            background: #d1ecf1;
-            border: 1px solid #bee5eb;
-            border-radius: 6px;
-            padding: 15px;
-            margin: 15px 0;
-            color: #0c5460;
+        .job-item {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         
-        .info-box {
+        .job-item.active {
+            border-color: #4285f4;
             background: #f0f8ff;
-            border: 1px solid #b3d9ff;
-            border-radius: 6px;
-            padding: 15px;
-            margin: 15px 0;
+        }
+        
+        .job-item.completed {
+            border-color: #28a745;
+            background: #f8fff9;
+        }
+        
+        .job-item.failed {
+            border-color: #dc3545;
+            background: #fff8f8;
+        }
+        
+        .job-info {
+            flex: 1;
+        }
+        
+        .job-actions {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .job-actions button {
+            padding: 5px 10px;
+            font-size: 0.8rem;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
         }
         
         .selection-info {
@@ -264,6 +287,46 @@
             padding: 15px;
             margin: 15px 0;
             display: none;
+        }
+        
+        .time-estimate {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 6px;
+            padding: 12px;
+            margin: 10px 0;
+            font-size: 0.9rem;
+            color: #856404;
+        }
+        
+        .download-section {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+            display: none;
+        }
+        
+        .download-section.active {
+            display: block;
+        }
+        
+        .download-link {
+            display: inline-block;
+            background: #28a745;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 4px;
+            text-decoration: none;
+            margin: 5px;
+            font-weight: bold;
+        }
+        
+        .download-link:hover {
+            background: #218838;
+            color: white;
+            text-decoration: none;
         }
         
         .range-group {
@@ -284,80 +347,15 @@
         }
         
         .api-key-group {
-            display: none;
+            margin-bottom: 20px;
         }
         
-        .api-key-field {
-            margin-bottom: 15px;
-        }
-        
-        .api-key-field label {
-            display: block;
-            font-weight: bold;
-            margin-bottom: 5px;
-            color: #555;
-        }
-        
-        .api-key-group.active {
-            display: block;
-        }
-        
-        .time-estimate {
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
-            border-radius: 6px;
-            padding: 12px;
-            margin: 10px 0;
-            font-size: 0.9rem;
-            color: #856404;
-        }
-        
-        .job-tracker {
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
+        .job-id-input {
+            background: #f0f8ff;
+            border: 1px solid #b3d9ff;
             border-radius: 6px;
             padding: 15px;
             margin: 15px 0;
-            display: none;
-        }
-        
-        .job-tracker.active {
-            display: block;
-        }
-        
-        .job-status {
-            font-weight: bold;
-            margin-bottom: 10px;
-        }
-        
-        .download-links {
-            background: #d4edda;
-            border: 1px solid #c3e6cb;
-            border-radius: 6px;
-            padding: 15px;
-            margin: 15px 0;
-            display: none;
-        }
-        
-        .download-links.active {
-            display: block;
-        }
-        
-        .download-link {
-            display: inline-block;
-            background: #28a745;
-            color: white;
-            padding: 8px 16px;
-            border-radius: 4px;
-            text-decoration: none;
-            margin: 5px;
-            font-size: 0.9rem;
-        }
-        
-        .download-link:hover {
-            background: #218838;
-            color: white;
-            text-decoration: none;
         }
         
         @media (max-width: 768px) {
@@ -378,19 +376,41 @@
 </head>
 <body>
     <div class="top-bar">
-        <div class="logo">🏔️ Hybrid Terrain Generator</div>
-        <div class="processing-mode">
-            <select id="processingMode" onchange="onProcessingModeChange()">
-                <option value="client">Client-Side (Fast, Keep Browser Open)</option>
-                <option value="server">Server-Side (Slow, Laptop Can Sleep)</option>
-            </select>
+        <div class="logo">☁️ Cloud Run Terrain Generator</div>
+        <div class="job-tracker-mini" id="jobTrackerMini">
+            <span id="activeJobText">No active jobs</span>
         </div>
     </div>
 
     <div class="container">
         <div class="header">
-            <h1>🌍 Hybrid Terrain Generator</h1>
-            <p>Choose client-side for quick jobs or server-side for overnight processing</p>
+            <h1>🌍 Cloud Run Terrain Generator</h1>
+            <p>Deploy once, process anywhere. Start jobs and close your browser!</p>
+        </div>
+
+        <div class="cloud-run-info">
+            <strong>☁️ Running on Google Cloud Run</strong><br>
+            ✅ Start jobs and close browser &nbsp;&nbsp;
+            ✅ 55-minute processing limit &nbsp;&nbsp;
+            ✅ Max 3000×3000 resolution &nbsp;&nbsp;
+            ✅ 7-day file storage
+        </div>
+
+        <!-- Job Manager Section -->
+        <div class="job-manager">
+            <h3>📋 Job Manager</h3>
+            
+            <div class="job-id-input">
+                <label for="jobIdInput">Track Existing Job by ID:</label>
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <input type="text" id="jobIdInput" placeholder="Enter job ID to track progress" style="flex: 1;">
+                    <button class="button" onclick="trackJobById()" style="width: auto; padding: 8px 16px;">Track Job</button>
+                </div>
+            </div>
+            
+            <div id="jobList" class="job-list">
+                <div class="status info">No jobs found. Create a new job below.</div>
+            </div>
         </div>
 
         <div class="main-content">
@@ -399,26 +419,13 @@
             </div>
 
             <div class="controls">
-                <div id="processingModeInfo" class="processing-mode-info">
-                    <strong>🖥️ Client-Side Processing</strong><br>
-                    Fast processing, but keep browser tab open. Good for resolutions up to 1000×1000.
-                </div>
-
-                <div id="apiKeyGroup" class="control-group api-key-group active">
-                    <div id="googleApiKey" class="api-key-field">
+                <div class="api-key-group">
+                    <div class="control-group">
                         <label for="googleKey">Google Maps API Key:</label>
                         <input type="password" id="googleKey" placeholder="Enter your Google Maps API key">
                     </div>
                     
                     <button class="button" onclick="loadMap()" id="loadBtn">Load Map</button>
-                </div>
-
-                <div id="openSourceGroup" class="control-group api-key-group">
-                    <div class="info-box">
-                        <strong>🆓 Open Source Data</strong><br>
-                        No API key required! Uses OpenStreetMap for display.
-                    </div>
-                    <button class="button" onclick="loadOpenSourceMap()" id="loadOpenBtn">Load Open Source Map</button>
                 </div>
 
                 <div class="selection-info" id="selectionInfo">
@@ -428,41 +435,20 @@
                 </div>
 
                 <div class="control-group">
-                    <label for="resolution">Resolution:</label>
+                    <label for="resolution">Resolution (Cloud Run Optimized):</label>
                     <select id="resolution" onchange="updateEstimates()">
-                        <option value="200">200×200 (40K points) - 15-30 min</option>
-                        <option value="500" selected>500×500 (250K points) - 1-2 hours</option>
-                        <option value="1000">1000×1000 (1M points) - 3-6 hours</option>
-                        <option value="1500">1500×1500 (2.25M points) - 6-12 hours</option>
-                        <option value="2000">2000×2000 (4M points) - 12-24 hours</option>
-                        <option value="3000">3000×3000 (9M points) - 1-3 days</option>
-                        <option value="5000">5000×5000 (25M points) - 3-7 days</option>
+                        <option value="500">500×500 (250K points) - ~5 min</option>
+                        <option value="1000" selected>1000×1000 (1M points) - ~15 min</option>
+                        <option value="1500">1500×1500 (2.25M points) - ~25 min</option>
+                        <option value="2000">2000×2000 (4M points) - ~35 min</option>
+                        <option value="2500">2500×2500 (6.25M points) - ~45 min</option>
+                        <option value="3000">3000×3000 (9M points) - ~55 min (MAX)</option>
                     </select>
                 </div>
 
                 <div id="timeEstimate" class="time-estimate">
-                    <strong>⏱️ Estimated Time:</strong><br>
-                    <span id="estimateText">Select resolution for estimate</span>
-                </div>
-
-                <div class="control-group">
-                    <label for="batchSize">Batch Size:</label>
-                    <select id="batchSize" onchange="updateEstimates()">
-                        <option value="50">50 points - Ultra-safe</option>
-                        <option value="100" selected>100 points - Balanced</option>
-                        <option value="200">200 points - Faster</option>
-                        <option value="300">300 points - Maximum</option>
-                    </select>
-                </div>
-
-                <div class="control-group">
-                    <label for="batchDelay">Delay Between Batches (ms):</label>
-                    <select id="batchDelay" onchange="updateEstimates()">
-                        <option value="500">500ms - Fast</option>
-                        <option value="1000" selected>1000ms - Safe</option>
-                        <option value="1500">1500ms - Conservative</option>
-                        <option value="2000">2000ms - Ultra-safe</option>
-                    </select>
+                    <strong>⏱️ Cloud Run Estimate:</strong><br>
+                    <span id="estimateText">~15 minutes for 1000×1000 resolution</span>
                 </div>
 
                 <div class="control-group">
@@ -484,35 +470,23 @@
                 </div>
 
                 <div class="progress-container" id="progressContainer">
-                    <div><strong id="progressTitle">Processing...</strong></div>
+                    <div><strong id="progressTitle">Cloud Run Processing...</strong></div>
                     <div class="progress-bar">
                         <div class="progress-fill" id="progressFill"></div>
                     </div>
                     <div id="progressText">Initializing...</div>
                     <div class="progress-details" id="progressDetails">
-                        Ready to process...
+                        Processing on Cloud Run...
                     </div>
                 </div>
 
-                <div class="job-tracker" id="jobTracker">
-                    <div class="job-status" id="jobStatus">Job Status: Queued</div>
-                    <div id="jobDetails">Job ID: <span id="jobId"></span></div>
-                    <div id="jobProgress">Progress: <span id="jobProgressText">0%</span></div>
-                    <div id="jobStep">Step: <span id="jobStepText">Initializing...</span></div>
-                    <button class="button cancel" onclick="cancelServerJob()" id="cancelJobBtn">Cancel Server Job</button>
-                </div>
-
-                <div class="download-links" id="downloadLinks">
+                <div class="download-section" id="downloadSection">
                     <strong>📥 Download Your Model:</strong><br>
-                    <div id="downloadLinksContent"></div>
+                    <div id="downloadContent"></div>
                 </div>
 
-                <button class="button" id="generateBtn" onclick="generateModel()" disabled>
-                    🚀 Generate Terrain Model
-                </button>
-
-                <button class="button cancel" id="cancelBtn" onclick="cancelGeneration()" style="display: none;">
-                    ❌ Cancel Generation
+                <button class="button cloud-run" id="generateBtn" onclick="startCloudRunJob()" disabled>
+                    ☁️ Start Cloud Run Job
                 </button>
 
                 <div id="status"></div>
@@ -523,83 +497,43 @@
     <script>
         let map, rectangle, selectedBounds = null;
         let mapLoaded = false;
-        let isProcessing = false;
-        let isCancelled = false;
-        let elevationService = null;
-        let currentProcessingMode = 'client';
-        let serverJobId = null;
+        let currentJobId = null;
         let jobStatusInterval = null;
+        let trackedJobs = new Set();
 
-        function onProcessingModeChange() {
-            const mode = document.getElementById('processingMode').value;
-            currentProcessingMode = mode;
-            
-            const modeInfo = document.getElementById('processingModeInfo');
-            const generateBtn = document.getElementById('generateBtn');
-            
-            if (mode === 'server') {
-                modeInfo.className = 'server-mode-info';
-                modeInfo.innerHTML = `
-                    <strong>☁️ Server-Side Processing</strong><br>
-                    Processing happens on the server. Your laptop can sleep! Files automatically uploaded to cloud storage.
-                `;
-                generateBtn.className = 'button server-mode';
-                generateBtn.textContent = '☁️ Start Server-Side Job';
-            } else {
-                modeInfo.className = 'client-mode-info';
-                modeInfo.innerHTML = `
-                    <strong>🖥️ Client-Side Processing</strong><br>
-                    Fast processing in your browser. Keep this tab open during processing.
-                `;
-                generateBtn.className = 'button';
-                generateBtn.textContent = '🚀 Generate Terrain Model';
+        // Load jobs from localStorage
+        function loadTrackedJobs() {
+            const saved = localStorage.getItem('cloudRunJobs');
+            if (saved) {
+                trackedJobs = new Set(JSON.parse(saved));
+                updateJobList();
             }
-            
-            updateEstimates();
-            checkGenerateButton();
-            hideJobTracker();
+        }
+
+        // Save jobs to localStorage
+        function saveTrackedJobs() {
+            localStorage.setItem('cloudRunJobs', JSON.stringify([...trackedJobs]));
         }
 
         function updateEstimates() {
             const resolution = parseInt(document.getElementById('resolution').value);
-            const batchSize = parseInt(document.getElementById('batchSize').value);
-            const batchDelay = parseInt(document.getElementById('batchDelay').value);
+            const totalPoints = resolution * resolution;
             
-            const totalPoints = (resolution + 1) * (resolution + 1);
-            const totalBatches = Math.ceil(totalPoints / batchSize);
+            // Cloud Run optimized estimates
+            const timeEstimates = {
+                500: 5,
+                1000: 15,
+                1500: 25,
+                2000: 35,
+                2500: 45,
+                3000: 55
+            };
             
-            // Base processing time
-            const processingTimePerBatch = (batchDelay / 1000) + 2;
-            const baseProcessingTime = totalBatches * processingTimePerBatch;
-            
-            // Adjust for processing mode
-            let adjustedTime;
-            if (currentProcessingMode === 'server') {
-                adjustedTime = baseProcessingTime * 0.8; // Server is more efficient
-            } else {
-                adjustedTime = baseProcessingTime;
-            }
-            
-            const days = Math.floor(adjustedTime / 86400);
-            const hours = Math.floor((adjustedTime % 86400) / 3600);
-            const minutes = Math.floor((adjustedTime % 3600) / 60);
-            
-            let formattedTime;
-            if (days > 0) {
-                formattedTime = `${days}d ${hours}h ${minutes}m`;
-            } else if (hours > 0) {
-                formattedTime = `${hours}h ${minutes}m`;
-            } else {
-                formattedTime = `${minutes}m`;
-            }
-            
-            const modeText = currentProcessingMode === 'server' ? 
-                'Server-side (laptop can sleep)' : 
-                'Client-side (keep browser open)';
+            const estimatedMinutes = timeEstimates[resolution] || Math.round(totalPoints / 20000);
             
             document.getElementById('estimateText').innerHTML = `
-                <strong>${formattedTime}</strong> for ${totalPoints.toLocaleString()} points<br>
-                <small>${modeText} - ${totalBatches.toLocaleString()} batches</small>
+                <strong>~${estimatedMinutes} minutes</strong> for ${totalPoints.toLocaleString()} points<br>
+                <small>Cloud Run optimized processing</small>
             `;
         }
 
@@ -616,8 +550,6 @@
             if (show) {
                 container.classList.add('active');
                 progressFill.style.width = progress + '%';
-                progressFill.className = currentProcessingMode === 'server' ? 
-                    'progress-fill server-progress-fill' : 'progress-fill';
                 document.getElementById('progressText').textContent = text;
                 if (details) {
                     document.getElementById('progressDetails').textContent = details;
@@ -627,99 +559,16 @@
             }
         }
 
-        function showJobTracker(jobId) {
-            const tracker = document.getElementById('jobTracker');
-            document.getElementById('jobId').textContent = jobId;
-            tracker.classList.add('active');
+        function updateJobTrackerMini() {
+            const mini = document.getElementById('jobTrackerMini');
+            const text = document.getElementById('activeJobText');
             
-            // Start polling job status
-            if (jobStatusInterval) {
-                clearInterval(jobStatusInterval);
-            }
-            
-            jobStatusInterval = setInterval(() => {
-                checkJobStatus(jobId);
-            }, 5000); // Check every 5 seconds
-        }
-
-        function hideJobTracker() {
-            const tracker = document.getElementById('jobTracker');
-            tracker.classList.remove('active');
-            
-            if (jobStatusInterval) {
-                clearInterval(jobStatusInterval);
-                jobStatusInterval = null;
-            }
-        }
-
-        async function checkJobStatus(jobId) {
-            try {
-                const response = await fetch(`/api/job/${jobId}`);
-                if (!response.ok) {
-                    throw new Error('Job not found');
-                }
-                
-                const job = await response.json();
-                
-                document.getElementById('jobStatus').textContent = `Job Status: ${job.status}`;
-                document.getElementById('jobProgressText').textContent = `${job.progress}%`;
-                document.getElementById('jobStepText').textContent = job.currentStep;
-                
-                showProgress(true, job.progress, job.currentStep, 
-                    `Server job: ${job.status} - ${job.progress}%`);
-                
-                if (job.status === 'completed') {
-                    clearInterval(jobStatusInterval);
-                    hideJobTracker();
-                    showDownloadLinks(job);
-                    showStatus(`✅ Server job completed! File size: ${job.fileSize}`, 'success');
-                } else if (job.status === 'failed') {
-                    clearInterval(jobStatusInterval);
-                    hideJobTracker();
-                    showStatus(`❌ Server job failed: ${job.error}`, 'error');
-                } else if (job.status === 'cancelled') {
-                    clearInterval(jobStatusInterval);
-                    hideJobTracker();
-                    showStatus('Server job cancelled', 'warning');
-                }
-                
-            } catch (error) {
-                console.error('Error checking job status:', error);
-            }
-        }
-
-        function showDownloadLinks(job) {
-            const linksContainer = document.getElementById('downloadLinks');
-            const linksContent = document.getElementById('downloadLinksContent');
-            
-            let linksHtml = '';
-            for (const result of job.uploadResults) {
-                if (result.success) {
-                    linksHtml += `<a href="${result.downloadLink}" class="download-link" target="_blank">
-                        📥 ${result.service}
-                    </a>`;
-                }
-            }
-            
-            linksContent.innerHTML = linksHtml;
-            linksContainer.classList.add('active');
-        }
-
-        async function cancelServerJob() {
-            if (!serverJobId) return;
-            
-            try {
-                const response = await fetch(`/api/job/${serverJobId}/cancel`, {
-                    method: 'POST'
-                });
-                
-                if (response.ok) {
-                    showStatus('Server job cancellation requested', 'warning');
-                } else {
-                    showStatus('Failed to cancel server job', 'error');
-                }
-            } catch (error) {
-                showStatus('Error cancelling server job: ' + error.message, 'error');
+            if (currentJobId) {
+                mini.classList.add('active');
+                text.textContent = `Job: ${currentJobId.slice(0, 8)}...`;
+            } else {
+                mini.classList.remove('active');
+                text.textContent = 'No active jobs';
             }
         }
 
@@ -741,24 +590,6 @@
             document.head.appendChild(script);
         }
 
-        function loadOpenSourceMap() {
-            showStatus('Loading OpenStreetMap...', 'info');
-            
-            if (!window.L) {
-                const leafletCSS = document.createElement('link');
-                leafletCSS.rel = 'stylesheet';
-                leafletCSS.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-                document.head.appendChild(leafletCSS);
-                
-                const leafletJS = document.createElement('script');
-                leafletJS.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-                leafletJS.onload = initOpenSourceMap;
-                document.head.appendChild(leafletJS);
-            } else {
-                initOpenSourceMap();
-            }
-        }
-
         function initGoogleMap() {
             try {
                 showStatus('Google Maps loaded! Draw a rectangle to select terrain area.', 'success');
@@ -770,8 +601,6 @@
                     mapTypeId: 'terrain'
                 });
 
-                elevationService = new google.maps.ElevationService();
-
                 const drawingManager = new google.maps.drawing.DrawingManager({
                     drawingMode: google.maps.drawing.OverlayType.RECTANGLE,
                     drawingControl: true,
@@ -780,10 +609,10 @@
                         drawingModes: ['rectangle']
                     },
                     rectangleOptions: {
-                        fillColor: '#667eea',
+                        fillColor: '#4285f4',
                         fillOpacity: 0.3,
                         strokeWeight: 2,
-                        strokeColor: '#667eea',
+                        strokeColor: '#4285f4',
                         editable: true
                     }
                 });
@@ -815,106 +644,11 @@
                     });
                 });
 
-                hideLoadButtons();
+                document.getElementById('loadBtn').style.display = 'none';
 
             } catch (error) {
                 showStatus('Error initializing Google Maps: ' + error.message, 'error');
             }
-        }
-
-        function initOpenSourceMap() {
-            try {
-                showStatus('OpenStreetMap loaded! Click and drag to draw rectangle.', 'success');
-                mapLoaded = true;
-                
-                document.getElementById('map').innerHTML = '';
-                
-                map = L.map('map').setView([34.6937, 135.5023], 10);
-
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '© OpenStreetMap contributors'
-                }).addTo(map);
-
-                let isDrawing = false;
-                let startLatLng = null;
-                let drawingRectangle = null;
-                
-                map.on('mousedown', function(e) {
-                    if (e.originalEvent.button === 0) {
-                        isDrawing = true;
-                        startLatLng = e.latlng;
-                        
-                        if (rectangle) {
-                            map.removeLayer(rectangle);
-                        }
-                        if (drawingRectangle) {
-                            map.removeLayer(drawingRectangle);
-                        }
-                        
-                        map.dragging.disable();
-                        e.originalEvent.preventDefault();
-                    }
-                });
-                
-                map.on('mousemove', function(e) {
-                    if (isDrawing && startLatLng) {
-                        if (drawingRectangle) {
-                            map.removeLayer(drawingRectangle);
-                        }
-                        
-                        const bounds = L.latLngBounds(startLatLng, e.latlng);
-                        drawingRectangle = L.rectangle(bounds, {
-                            color: '#667eea',
-                            fillColor: '#667eea',
-                            fillOpacity: 0.2,
-                            weight: 2,
-                            dashArray: '5, 5'
-                        }).addTo(map);
-                    }
-                });
-                
-                map.on('mouseup', function(e) {
-                    if (isDrawing && startLatLng) {
-                        isDrawing = false;
-                        map.dragging.enable();
-                        
-                        if (drawingRectangle) {
-                            map.removeLayer(drawingRectangle);
-                        }
-                        
-                        const bounds = L.latLngBounds(startLatLng, e.latlng);
-                        rectangle = L.rectangle(bounds, {
-                            color: '#667eea',
-                            fillColor: '#667eea',
-                            fillOpacity: 0.3,
-                            weight: 3
-                        }).addTo(map);
-                        
-                        selectedBounds = {
-                            north: bounds.getNorth(),
-                            south: bounds.getSouth(),
-                            east: bounds.getEast(),
-                            west: bounds.getWest()
-                        };
-                        
-                        updateSelectionInfo();
-                        updateEstimates();
-                        checkGenerateButton();
-                        
-                        showStatus('Area selected! Configure settings and generate model.', 'success');
-                    }
-                });
-
-                hideLoadButtons();
-
-            } catch (error) {
-                showStatus('Error initializing OpenStreetMap: ' + error.message, 'error');
-            }
-        }
-
-        function hideLoadButtons() {
-            document.getElementById('loadBtn').style.display = 'none';
-            document.getElementById('loadOpenBtn').style.display = 'none';
         }
 
         function updateSelectionInfo() {
@@ -928,9 +662,9 @@
                     `E: ${selectedBounds.east.toFixed(6)}, W: ${selectedBounds.west.toFixed(6)}`;
                 
                 let areaWarning = '';
-                if (area > 0.1) areaWarning = '⚠️ Very large area - use server-side processing';
-                else if (area > 0.01) areaWarning = '⚠️ Large area - consider server-side processing';
-                else areaWarning = '✅ Good size for both processing modes';
+                if (area > 0.1) areaWarning = '⚠️ Very large area - may hit 55min limit';
+                else if (area > 0.01) areaWarning = '⚠️ Large area - monitor processing time';
+                else areaWarning = '✅ Good size for Cloud Run';
                 
                 document.getElementById('areaText').innerHTML = 
                     `Area: ${area.toFixed(6)} sq° - ${areaWarning}`;
@@ -943,41 +677,33 @@
 
         function checkGenerateButton() {
             const btn = document.getElementById('generateBtn');
-            btn.disabled = !(mapLoaded && selectedBounds && !isProcessing);
+            const apiKey = document.getElementById('googleKey').value.trim();
+            btn.disabled = !(mapLoaded && selectedBounds && apiKey && !currentJobId);
         }
 
-        async function generateModel() {
+        async function startCloudRunJob() {
             if (!selectedBounds) {
                 showStatus('Please select an area on the map first.', 'error');
                 return;
             }
 
-            if (currentProcessingMode === 'server') {
-                return startServerSideJob();
-            } else {
-                return startClientSideProcessing();
+            const apiKey = document.getElementById('googleKey').value.trim();
+            if (!apiKey) {
+                showStatus('Please enter your Google Maps API key.', 'error');
+                return;
             }
-        }
-
-        async function startServerSideJob() {
-            const generateBtn = document.getElementById('generateBtn');
-            generateBtn.disabled = true;
-            isProcessing = true;
 
             try {
+                showStatus('Starting Cloud Run job...', 'info');
+                
                 const jobData = {
                     bounds: selectedBounds,
                     resolution: parseInt(document.getElementById('resolution').value),
-                    dataSource: 'google',
-                    apiKey: document.getElementById('googleKey').value.trim(),
-                    batchSize: parseInt(document.getElementById('batchSize').value),
-                    batchDelay: parseInt(document.getElementById('batchDelay').value),
+                    apiKey: apiKey,
                     exaggeration: parseFloat(document.getElementById('exaggeration').value),
                     baseHeight: parseFloat(document.getElementById('baseHeight').value),
                     modelSize: parseFloat(document.getElementById('modelSize').value)
                 };
-
-                showStatus('Starting server-side job...', 'info');
 
                 const response = await fetch('/api/server-job', {
                     method: 'POST',
@@ -989,219 +715,268 @@
 
                 if (!response.ok) {
                     const error = await response.json();
-                    throw new Error(error.error || 'Failed to start server job');
+                    throw new Error(error.error || 'Failed to start Cloud Run job');
                 }
 
                 const result = await response.json();
-                serverJobId = result.jobId;
-
-                showStatus(`✅ Server job started! Job ID: ${result.jobId}. Your laptop can now sleep.`, 'success');
-                showJobTracker(result.jobId);
+                currentJobId = result.jobId;
+                
+                // Add to tracked jobs
+                trackedJobs.add(result.jobId);
+                saveTrackedJobs();
+                
+                showStatus(`✅ Cloud Run job started! Job ID: ${result.jobId}`, 'success');
+                showStatus('🎉 You can now close your browser! The job will continue running.', 'success');
+                
+                // Start monitoring
+                startJobMonitoring(result.jobId);
+                updateJobList();
+                updateJobTrackerMini();
+                checkGenerateButton();
 
             } catch (error) {
-                showStatus('Error starting server job: ' + error.message, 'error');
-            } finally {
-                isProcessing = false;
-                generateBtn.disabled = false;
-                checkGenerateButton();
+                showStatus('Error starting Cloud Run job: ' + error.message, 'error');
             }
         }
 
-        async function startClientSideProcessing() {
-            const generateBtn = document.getElementById('generateBtn');
-            const cancelBtn = document.getElementById('cancelBtn');
+        function startJobMonitoring(jobId) {
+            if (jobStatusInterval) {
+                clearInterval(jobStatusInterval);
+            }
             
-            generateBtn.disabled = true;
-            cancelBtn.style.display = 'block';
-            isProcessing = true;
-            isCancelled = false;
+            jobStatusInterval = setInterval(() => {
+                checkJobStatus(jobId);
+            }, 5000); // Check every 5 seconds
+            
+            // Also check immediately
+            checkJobStatus(jobId);
+        }
 
+        async function checkJobStatus(jobId) {
             try {
-                const resolution = parseInt(document.getElementById('resolution').value);
-                showStatus('Starting client-side processing...', 'info');
-                showProgress(true, 5, 'Initializing client-side processing...');
-
-                // Use simplified client-side processing for demo
-                const elevationData = await fetchElevationDataSimple(selectedBounds, resolution);
-
-                if (isCancelled) {
-                    throw new Error('Processing cancelled by user');
+                const response = await fetch(`/api/job/${jobId}`);
+                if (!response.ok) {
+                    throw new Error('Job not found');
                 }
-
-                showProgress(true, 90, 'Generating STL file...');
-                const stlContent = generateSTLSimple(elevationData, resolution);
                 
-                showProgress(true, 100, 'Complete!');
-                downloadSTL(stlContent, resolution, 'client');
+                const job = await response.json();
                 
-                showStatus('✅ Client-side model generated successfully!', 'success');
-                setTimeout(() => showProgress(false), 3000);
-
+                showProgress(true, job.progress, job.currentStep, 
+                    `Cloud Run job: ${job.status} - ${job.progress}%`);
+                
+                if (job.status === 'completed') {
+                    clearInterval(jobStatusInterval);
+                    currentJobId = null;
+                    updateJobTrackerMini();
+                    showDownloadLinks(job);
+                    showStatus(`🎉 Cloud Run job completed! File size: ${job.fileSize}`, 'success');
+                    showProgress(false);
+                    checkGenerateButton();
+                } else if (job.status === 'failed') {
+                    clearInterval(jobStatusInterval);
+                    currentJobId = null;
+                    updateJobTrackerMini();
+                    showStatus(`❌ Cloud Run job failed: ${job.error}`, 'error');
+                    showProgress(false);
+                    checkGenerateButton();
+                } else if (job.status === 'cancelled') {
+                    clearInterval(jobStatusInterval);
+                    currentJobId = null;
+                    updateJobTrackerMini();
+                    showStatus('Cloud Run job cancelled', 'warning');
+                    showProgress(false);
+                    checkGenerateButton();
+                }
+                
+                updateJobList();
+                
             } catch (error) {
-                showProgress(false);
-                if (error.message.includes('cancelled')) {
-                    showStatus('Generation cancelled by user', 'warning');
-                } else {
-                    showStatus('Error: ' + error.message, 'error');
+                console.error('Error checking job status:', error);
+            }
+        }
+
+        function showDownloadLinks(job) {
+            const section = document.getElementById('downloadSection');
+            const content = document.getElementById('downloadContent');
+            
+            content.innerHTML = `
+                <a href="/api/job/${job.id}/download" class="download-link" target="_blank">
+                    📥 Download STL (${job.fileSize})
+                </a>
+                <br><small>File available for 7 days</small>
+            `;
+            
+            section.classList.add('active');
+        }
+
+        function trackJobById() {
+            const jobId = document.getElementById('jobIdInput').value.trim();
+            if (!jobId) {
+                showStatus('Please enter a job ID.', 'error');
+                return;
+            }
+            
+            // Add to tracked jobs
+            trackedJobs.add(jobId);
+            saveTrackedJobs();
+            
+            // Start monitoring if not already current job
+            if (currentJobId !== jobId) {
+                currentJobId = jobId;
+                startJobMonitoring(jobId);
+                updateJobTrackerMini();
+            }
+            
+            showStatus(`Now tracking job: ${jobId}`, 'info');
+            updateJobList();
+            document.getElementById('jobIdInput').value = '';
+        }
+
+        async function updateJobList() {
+            const jobList = document.getElementById('jobList');
+            
+            if (trackedJobs.size === 0) {
+                jobList.innerHTML = '<div class="status info">No jobs found. Create a new job below.</div>';
+                return;
+            }
+            
+            let jobsHtml = '';
+            
+            for (const jobId of trackedJobs) {
+                try {
+                    const response = await fetch(`/api/job/${jobId}`);
+                    if (response.ok) {
+                        const job = await response.json();
+                        const isActive = currentJobId === jobId;
+                        const statusClass = job.status === 'completed' ? 'completed' : 
+                                          job.status === 'failed' ? 'failed' : 
+                                          isActive ? 'active' : '';
+                        
+                        jobsHtml += `
+                            <div class="job-item ${statusClass}">
+                                <div class="job-info">
+                                    <strong>${jobId.slice(0, 12)}...</strong><br>
+                                    <small>${job.resolution}×${job.resolution} - ${job.status} (${job.progress}%)</small><br>
+                                    <small>${job.currentStep}</small>
+                                </div>
+                                <div class="job-actions">
+                                    ${job.status === 'completed' ? 
+                                        `<a href="/api/job/${jobId}/download" style="background: #28a745; color: white; padding: 5px 10px; border-radius: 3px; text-decoration: none; font-size: 0.8rem;">Download</a>` :
+                                        `<button onclick="trackExistingJob('${jobId}')" style="background: #4285f4; color: white;">Track</button>`
+                                    }
+                                    <button onclick="removeJob('${jobId}')" style="background: #dc3545; color: white;">Remove</button>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        // Job not found, mark for removal
+                        jobsHtml += `
+                            <div class="job-item">
+                                <div class="job-info">
+                                    <strong>${jobId.slice(0, 12)}...</strong><br>
+                                    <small style="color: #dc3545;">Job not found</small>
+                                </div>
+                                <div class="job-actions">
+                                    <button onclick="removeJob('${jobId}')" style="background: #dc3545; color: white;">Remove</button>
+                                </div>
+                            </div>
+                        `;
+                    }
+                } catch (error) {
+                    console.error('Error fetching job:', error);
                 }
-            } finally {
-                isProcessing = false;
-                isCancelled = false;
-                generateBtn.disabled = false;
-                cancelBtn.style.display = 'none';
+            }
+            
+            jobList.innerHTML = jobsHtml;
+        }
+
+        function trackExistingJob(jobId) {
+            currentJobId = jobId;
+            startJobMonitoring(jobId);
+            updateJobTrackerMini();
+            checkGenerateButton();
+            showStatus(`Now actively tracking job: ${jobId}`, 'info');
+        }
+
+        function removeJob(jobId) {
+            trackedJobs.delete(jobId);
+            saveTrackedJobs();
+            
+            if (currentJobId === jobId) {
+                currentJobId = null;
+                if (jobStatusInterval) {
+                    clearInterval(jobStatusInterval);
+                }
+                updateJobTrackerMini();
+                showProgress(false);
                 checkGenerateButton();
             }
-        }
-
-        function cancelGeneration() {
-            isCancelled = true;
-            showStatus('Cancelling generation...', 'warning');
-        }
-
-        // Simplified client-side elevation fetching for demo
-        async function fetchElevationDataSimple(bounds, resolution) {
-            const latStep = (bounds.north - bounds.south) / resolution;
-            const lngStep = (bounds.east - bounds.west) / resolution;
-            const elevationData = [];
-            const totalPoints = (resolution + 1) * (resolution + 1);
             
-            for (let i = 0; i <= resolution; i++) {
-                for (let j = 0; j <= resolution; j++) {
-                    const lat = bounds.south + (i * latStep);
-                    const lng = bounds.west + (j * lngStep);
-                    
-                    // Simulate realistic elevation data for terrain
-                    const baseElevation = 100;
-                    const terrainVariation = Math.sin(lat * 0.05) * Math.cos(lng * 0.05) * 300;
-                    const detailVariation = Math.sin(lat * 0.2) * Math.cos(lng * 0.2) * 100;
-                    const noise = (Math.random() - 0.5) * 50;
-                    
-                    const elevation = baseElevation + terrainVariation + detailVariation + noise;
-                    
-                    elevationData.push({
-                        elevation: Math.max(0, elevation),
-                        location: { lat, lng }
-                    });
-                    
-                    if (elevationData.length % 1000 === 0) {
-                        const progress = Math.round((elevationData.length / totalPoints) * 80);
-                        showProgress(true, progress, `Processing ${elevationData.length}/${totalPoints} points...`);
-                        await new Promise(resolve => setTimeout(resolve, 1));
-                    }
-                    
-                    if (isCancelled) {
-                        throw new Error('Processing cancelled');
-                    }
-                }
+            updateJobList();
+            showStatus(`Removed job: ${jobId.slice(0, 12)}...`, 'info');
+        }
+
+        // Check for URL parameters on load (for sharing job links)
+        function checkUrlParams() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const jobId = urlParams.get('job');
+            
+            if (jobId) {
+                document.getElementById('jobIdInput').value = jobId;
+                trackJobById();
+                
+                // Clean URL
+                window.history.replaceState({}, document.title, window.location.pathname);
             }
-            
-            return elevationData;
         }
 
-        // Simplified STL generation for demo
-        function generateSTLSimple(elevationData, resolution) {
-            const exaggeration = parseFloat(document.getElementById('exaggeration').value);
-            const baseHeight = parseFloat(document.getElementById('baseHeight').value);
-            const modelSize = parseFloat(document.getElementById('modelSize').value);
+        // Initialize everything
+        document.addEventListener('DOMContentLoaded', function() {
+            updateEstimates();
+            loadTrackedJobs();
+            checkUrlParams();
+            
+            // Check for changes in API key
+            document.getElementById('googleKey').addEventListener('input', checkGenerateButton);
+            
+            // Auto-refresh job list every 30 seconds
+            setInterval(updateJobList, 30000);
+            
+            showStatus('Enter your Google Maps API key and load the map to get started.', 'info');
+        });
 
-            let minElevation = Math.min(...elevationData.map(p => p.elevation));
-            let maxElevation = Math.max(...elevationData.map(p => p.elevation));
-            
-            if (minElevation === maxElevation) maxElevation = minElevation + 1;
-            const elevationRange = maxElevation - minElevation;
-            
-            const grid = [];
-            for (let i = 0; i <= resolution; i++) {
-                grid[i] = [];
-                for (let j = 0; j <= resolution; j++) {
-                    const index = i * (resolution + 1) + j;
-                    const elevation = elevationData[index].elevation;
-                    const normalizedHeight = ((elevation - minElevation) / elevationRange) * 
-                                           modelSize * 0.4 * exaggeration;
-                    grid[i][j] = normalizedHeight + baseHeight;
-                }
+        // Keep the page alive to maintain job monitoring
+        setInterval(async () => {
+            try {
+                await fetch('/api/keepalive');
+            } catch (error) {
+                console.log('Keep-alive ping failed');
             }
+        }, 5 * 60 * 1000); // Every 5 minutes
 
-            let stl = `solid client_terrain_${resolution}x${resolution}\n`;
-            const step = modelSize / resolution;
-            
-            // Generate terrain surface
-            for (let i = 0; i < resolution; i++) {
-                for (let j = 0; j < resolution; j++) {
-                    const x1 = i * step, y1 = j * step;
-                    const x2 = (i + 1) * step, y2 = (j + 1) * step;
-                    
-                    const z1 = grid[i][j], z2 = grid[i + 1][j];
-                    const z3 = grid[i][j + 1], z4 = grid[i + 1][j + 1];
-                    
-                    stl += generateTriangle([x1, y1, z1], [x2, y1, z2], [x1, y2, z3]);
-                    stl += generateTriangle([x2, y1, z2], [x2, y2, z4], [x1, y2, z3]);
-                }
+        // Handle page visibility changes
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden && currentJobId) {
+                // Page became visible, refresh job status
+                checkJobStatus(currentJobId);
             }
-            
-            // Add bottom surface
-            stl += generateTriangle([0, 0, 0], [0, modelSize, 0], [modelSize, 0, 0]);
-            stl += generateTriangle([modelSize, 0, 0], [0, modelSize, 0], [modelSize, modelSize, 0]);
-            
-            // Add simplified side walls
-            const wallHeight = Math.max(...grid.flat());
-            stl += generateTriangle([0, 0, 0], [0, 0, wallHeight], [modelSize, 0, 0]);
-            stl += generateTriangle([modelSize, 0, 0], [0, 0, wallHeight], [modelSize, 0, wallHeight]);
-            stl += generateTriangle([0, modelSize, 0], [modelSize, modelSize, 0], [0, modelSize, wallHeight]);
-            stl += generateTriangle([modelSize, modelSize, 0], [modelSize, modelSize, wallHeight], [0, modelSize, wallHeight]);
-            
-            stl += `endsolid client_terrain_${resolution}x${resolution}\n`;
-            return stl;
+        });
+
+        // Copy job ID to clipboard
+        function copyJobId(jobId) {
+            navigator.clipboard.writeText(jobId).then(function() {
+                showStatus('Job ID copied to clipboard!', 'success');
+            }).catch(function() {
+                showStatus('Failed to copy job ID', 'error');
+            });
         }
 
-        function generateTriangle(v1, v2, v3) {
-            const u = [v2[0] - v1[0], v2[1] - v1[1], v2[2] - v1[2]];
-            const v = [v3[0] - v1[0], v3[1] - v1[1], v3[2] - v1[2]];
-            
-            const normal = [
-                u[1] * v[2] - u[2] * v[1],
-                u[2] * v[0] - u[0] * v[2],
-                u[0] * v[1] - u[1] * v[0]
-            ];
-            
-            const length = Math.sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
-            if (length > 0) {
-                normal[0] /= length;
-                normal[1] /= length;
-                normal[2] /= length;
-            }
-            
-            return `  facet normal ${normal[0].toFixed(6)} ${normal[1].toFixed(6)} ${normal[2].toFixed(6)}\n` +
-                   `    outer loop\n` +
-                   `      vertex ${v1[0].toFixed(6)} ${v1[1].toFixed(6)} ${v1[2].toFixed(6)}\n` +
-                   `      vertex ${v2[0].toFixed(6)} ${v2[1].toFixed(6)} ${v2[2].toFixed(6)}\n` +
-                   `      vertex ${v3[0].toFixed(6)} ${v3[1].toFixed(6)} ${v3[2].toFixed(6)}\n` +
-                   `    endloop\n` +
-                   `  endfacet\n`;
+        // Share job link
+        function shareJobLink(jobId) {
+            const shareUrl = `${window.location.origin}${window.location.pathname}?job=${jobId}`;
+            navigator.clipboard.writeText(shareUrl).then(function() {
+                showStatus('Job tracking link copied to clipboard!', 'success');
+            }).catch(function() {
+                showStatus('Failed to copy job link', 'error');
+            });
         }
-
-        function downloadSTL(stlContent, resolution, source) {
-            const blob = new Blob([stlContent], { type: 'application/octet-stream' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            
-            const timestamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '_');
-            const fileSize = (blob.size / 1024 / 1024).toFixed(1);
-            
-            a.download = `terrain_${source}_${resolution}x${resolution}_${timestamp}.stl`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            
-            showStatus(`File downloaded: ${fileSize}MB STL with ${resolution}×${resolution} resolution`, 'success');
-        }
-
-        // Initialize
-        updateEstimates();
-        onProcessingModeChange();
-        showStatus('Choose processing mode: Client-side (fast, keep browser open) or Server-side (slow, laptop can sleep)', 'info');
-    </script>
-</body>
-</html>
