@@ -190,13 +190,19 @@ async function fetchElevationOptimized(bounds, resolution, apiKey, jobId, batchS
             
             if (response.data.status === 'OK' && response.data.results) {
                 for (let i = 0; i < response.data.results.length; i++) {
-                    elevationData[indices[i]] = response.data.results[i];
+                    const result = response.data.results[i];
+                    // Set sea level (negative elevations) to 0
+                    if (result.elevation < 0) {
+                        result.elevation = 0;
+                    }
+                    elevationData[indices[i]] = result;
                 }
                 
                 const progress = 5 + Math.round((batchIndex / batchCount) * 75);
                 jobStorage.update(jobId, {
                     currentStep: `Fetching elevation data: ${batchIndex + 1}/${batchCount} batches (${Math.round((batchIndex/batchCount)*100)}%)`,
-                    progress: progress
+                    progress: progress,
+                    batchSettings: { batchSize, batchDelay } // Store for ETA calculations
                 });
                 
                 console.log(`Job ${jobId}: Batch ${batchIndex + 1}/${batchCount} completed (${progress}%)`);
@@ -217,7 +223,7 @@ async function fetchElevationOptimized(bounds, resolution, apiKey, jobId, batchS
                 const noise = (Math.random() - 0.5) * 50;
                 
                 elevationData[indices[i]] = {
-                    elevation: Math.max(0, baseElevation + terrainVariation + detailVariation + noise),
+                    elevation: Math.max(0, baseElevation + terrainVariation + detailVariation + noise), // Ensure no negative elevations
                     location: { 
                         lat: lat, 
                         lng: lng 
@@ -237,28 +243,35 @@ async function fetchElevationOptimized(bounds, resolution, apiKey, jobId, batchS
     return elevationData;
 }
 
-// Generate STL content
+// Generate solid STL content with proper base and walls
 function generateSTL(elevationData, resolution, options = {}) {
     const {
         exaggeration = 2.0,
-        baseHeight = 5,
+        baseHeight = 2,
         modelSize = 150
     } = options;
     
-    console.log(`Generating STL: ${resolution}×${resolution}`);
+    console.log(`Generating solid STL: ${resolution}×${resolution}`);
     
-    // Find elevation range
+    // Find elevation range (excluding zero/sea level for scaling)
     let minElevation = Infinity;
     let maxElevation = -Infinity;
     
     for (const point of elevationData) {
-        if (point && point.elevation !== undefined) {
+        if (point && point.elevation !== undefined && point.elevation > 0) {
             if (point.elevation < minElevation) minElevation = point.elevation;
             if (point.elevation > maxElevation) maxElevation = point.elevation;
         }
     }
     
-    if (minElevation === maxElevation) maxElevation = minElevation + 1;
+    // Handle case where all elevations are 0 (all sea)
+    if (minElevation === Infinity) {
+        minElevation = 0;
+        maxElevation = 1;
+    } else if (minElevation === maxElevation) {
+        maxElevation = minElevation + 1;
+    }
+    
     const elevationRange = maxElevation - minElevation;
     
     // Build elevation grid
@@ -268,15 +281,22 @@ function generateSTL(elevationData, resolution, options = {}) {
         for (let j = 0; j <= resolution; j++) {
             const index = i * (resolution + 1) + j;
             const point = elevationData[index];
-            const elevation = point ? point.elevation : minElevation;
-            const normalizedHeight = ((elevation - minElevation) / elevationRange) * 
-                                   modelSize * 0.4 * exaggeration;
-            grid[i][j] = normalizedHeight + baseHeight;
+            const elevation = point ? point.elevation : 0;
+            
+            if (elevation <= 0) {
+                // Sea level = base height only
+                grid[i][j] = baseHeight;
+            } else {
+                // Land elevation = base + scaled height
+                const normalizedHeight = ((elevation - minElevation) / elevationRange) * 
+                                       modelSize * 0.4 * exaggeration;
+                grid[i][j] = normalizedHeight + baseHeight;
+            }
         }
     }
     
     // Generate STL
-    let stl = `solid server_terrain_${resolution}x${resolution}\n`;
+    let stl = `solid solid_terrain_${resolution}x${resolution}\n`;
     const step = modelSize / resolution;
     
     // Generate terrain surface triangles
@@ -288,44 +308,84 @@ function generateSTL(elevationData, resolution, options = {}) {
             const z1 = grid[i][j], z2 = grid[i + 1][j];
             const z3 = grid[i][j + 1], z4 = grid[i + 1][j + 1];
             
-            // Two triangles per quad
-            stl += `  facet normal 0.000000 0.000000 1.000000\n`;
-            stl += `    outer loop\n`;
-            stl += `      vertex ${x1.toFixed(3)} ${y1.toFixed(3)} ${z1.toFixed(3)}\n`;
-            stl += `      vertex ${x2.toFixed(3)} ${y1.toFixed(3)} ${z2.toFixed(3)}\n`;
-            stl += `      vertex ${x1.toFixed(3)} ${y2.toFixed(3)} ${z3.toFixed(3)}\n`;
-            stl += `    endloop\n`;
-            stl += `  endfacet\n`;
-            
-            stl += `  facet normal 0.000000 0.000000 1.000000\n`;
-            stl += `    outer loop\n`;
-            stl += `      vertex ${x2.toFixed(3)} ${y1.toFixed(3)} ${z2.toFixed(3)}\n`;
-            stl += `      vertex ${x2.toFixed(3)} ${y2.toFixed(3)} ${z4.toFixed(3)}\n`;
-            stl += `      vertex ${x1.toFixed(3)} ${y2.toFixed(3)} ${z3.toFixed(3)}\n`;
-            stl += `    endloop\n`;
-            stl += `  endfacet\n`;
+            // Two triangles per quad (top surface)
+            stl += addTriangle([x1, y1, z1], [x2, y1, z2], [x1, y2, z3]);
+            stl += addTriangle([x2, y1, z2], [x2, y2, z4], [x1, y2, z3]);
         }
     }
     
-    // Add base
-    stl += `  facet normal 0.000000 0.000000 -1.000000\n`;
-    stl += `    outer loop\n`;
-    stl += `      vertex 0.000 0.000 0.000\n`;
-    stl += `      vertex 0.000 ${modelSize.toFixed(3)} 0.000\n`;
-    stl += `      vertex ${modelSize.toFixed(3)} 0.000 0.000\n`;
-    stl += `    endloop\n`;
-    stl += `  endfacet\n`;
+    // Add solid base (bottom)
+    stl += addTriangle([0, 0, 0], [0, modelSize, 0], [modelSize, 0, 0]);
+    stl += addTriangle([modelSize, 0, 0], [0, modelSize, 0], [modelSize, modelSize, 0]);
     
-    stl += `  facet normal 0.000000 0.000000 -1.000000\n`;
-    stl += `    outer loop\n`;
-    stl += `      vertex ${modelSize.toFixed(3)} 0.000 0.000\n`;
-    stl += `      vertex 0.000 ${modelSize.toFixed(3)} 0.000\n`;
-    stl += `      vertex ${modelSize.toFixed(3)} ${modelSize.toFixed(3)} 0.000\n`;
-    stl += `    endloop\n`;
-    stl += `  endfacet\n`;
+    // Add side walls to make it a solid box
+    // Front wall (y=0)
+    for (let i = 0; i < resolution; i++) {
+        const x1 = i * step, x2 = (i + 1) * step;
+        const z1 = grid[i][0], z2 = grid[i + 1][0];
+        
+        stl += addTriangle([x1, 0, 0], [x1, 0, z1], [x2, 0, 0]);
+        stl += addTriangle([x2, 0, 0], [x1, 0, z1], [x2, 0, z2]);
+    }
     
-    stl += `endsolid server_terrain_${resolution}x${resolution}\n`;
+    // Back wall (y=modelSize)
+    for (let i = 0; i < resolution; i++) {
+        const x1 = i * step, x2 = (i + 1) * step;
+        const z1 = grid[i][resolution], z2 = grid[i + 1][resolution];
+        
+        stl += addTriangle([x1, modelSize, 0], [x2, modelSize, 0], [x1, modelSize, z1]);
+        stl += addTriangle([x2, modelSize, 0], [x2, modelSize, z2], [x1, modelSize, z1]);
+    }
+    
+    // Left wall (x=0)
+    for (let j = 0; j < resolution; j++) {
+        const y1 = j * step, y2 = (j + 1) * step;
+        const z1 = grid[0][j], z2 = grid[0][j + 1];
+        
+        stl += addTriangle([0, y1, 0], [0, y2, 0], [0, y1, z1]);
+        stl += addTriangle([0, y2, 0], [0, y2, z2], [0, y1, z1]);
+    }
+    
+    // Right wall (x=modelSize)
+    for (let j = 0; j < resolution; j++) {
+        const y1 = j * step, y2 = (j + 1) * step;
+        const z1 = grid[resolution][j], z2 = grid[resolution][j + 1];
+        
+        stl += addTriangle([modelSize, y1, 0], [modelSize, y1, z1], [modelSize, y2, 0]);
+        stl += addTriangle([modelSize, y2, 0], [modelSize, y1, z1], [modelSize, y2, z2]);
+    }
+    
+    stl += `endsolid solid_terrain_${resolution}x${resolution}\n`;
     return stl;
+}
+
+// Helper function to add a triangle with proper normal calculation
+function addTriangle(v1, v2, v3) {
+    // Calculate normal vector
+    const u = [v2[0] - v1[0], v2[1] - v1[1], v2[2] - v1[2]];
+    const v = [v3[0] - v1[0], v3[1] - v1[1], v3[2] - v1[2]];
+    
+    const normal = [
+        u[1] * v[2] - u[2] * v[1],
+        u[2] * v[0] - u[0] * v[2],
+        u[0] * v[1] - u[1] * v[0]
+    ];
+    
+    // Normalize
+    const length = Math.sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
+    if (length > 0) {
+        normal[0] /= length;
+        normal[1] /= length;
+        normal[2] /= length;
+    }
+    
+    return `  facet normal ${normal[0].toFixed(6)} ${normal[1].toFixed(6)} ${normal[2].toFixed(6)}\n` +
+           `    outer loop\n` +
+           `      vertex ${v1[0].toFixed(3)} ${v1[1].toFixed(3)} ${v1[2].toFixed(3)}\n` +
+           `      vertex ${v2[0].toFixed(3)} ${v2[1].toFixed(3)} ${v2[2].toFixed(3)}\n` +
+           `      vertex ${v3[0].toFixed(3)} ${v3[1].toFixed(3)} ${v3[2].toFixed(3)}\n` +
+           `    endloop\n` +
+           `  endfacet\n`;
 }
 
 // Process job in background
@@ -358,7 +418,7 @@ async function processJob(jobId) {
         // Generate STL
         const stlContent = generateSTL(elevationData, job.resolution, {
             exaggeration: job.exaggeration || 2.0,
-            baseHeight: job.baseHeight || 5,
+            baseHeight: job.baseHeight || 2,
             modelSize: job.modelSize || 150
         });
         
