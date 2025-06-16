@@ -427,6 +427,11 @@
                 </div>
 
                 <div class="control-group">
+                    <label for="jobName">Job Name (for identification):</label>
+                    <input type="text" id="jobName" placeholder="e.g., Mount Fuji High Detail, Yosemite Valley..." maxlength="50">
+                </div>
+
+                <div class="control-group">
                     <label for="resolution">Resolution (No Limits!):</label>
                     <select id="resolution" onchange="updateEstimates()">
                         <option value="500">500×500 (250K points) - ~5 min</option>
@@ -444,6 +449,28 @@
                 <div id="timeEstimate" class="time-estimate">
                     <strong>⏱️ Estimated Time:</strong><br>
                     <span id="estimateText">~15 minutes for 1000×1000 resolution</span>
+                </div>
+
+                <div class="control-group">
+                    <label for="batchSize">Batch Size (points per API call):</label>
+                    <select id="batchSize" onchange="updateEstimates()">
+                        <option value="100">100 points - Ultra-safe & slow</option>
+                        <option value="200">200 points - Safe</option>
+                        <option value="300">300 points - Balanced</option>
+                        <option value="400" selected>400 points - Fast (recommended)</option>
+                        <option value="500">500 points - Maximum (may hit limits)</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label for="batchDelay">Delay Between Batches (ms):</label>
+                    <select id="batchDelay" onchange="updateEstimates()">
+                        <option value="50">50ms - Ultra-fast (risky)</option>
+                        <option value="100" selected>100ms - Fast</option>
+                        <option value="200">200ms - Safe</option>
+                        <option value="500">500ms - Conservative</option>
+                        <option value="1000">1000ms - Ultra-safe</option>
+                    </select>
                 </div>
 
                 <div class="control-group">
@@ -600,28 +627,23 @@ function loadMap() {
 
 function updateEstimates() {
     var resolution = parseInt(document.getElementById('resolution').value);
+    var batchSize = parseInt(document.getElementById('batchSize').value);
+    var batchDelay = parseInt(document.getElementById('batchDelay').value);
+    
     var totalPoints = resolution * resolution;
+    var totalBatches = Math.ceil(totalPoints / batchSize);
     
-    var timeEstimates = {
-        500: 5,
-        1000: 15,
-        1500: 25,
-        2000: 45,
-        3000: 120,  // 2 hours
-        4000: 240,  // 4 hours
-        5000: 360,  // 6 hours
-        7500: 720,  // 12 hours
-        10000: 1440 // 24 hours
-    };
+    // Calculate time based on batch settings
+    var processingTimePerBatch = (batchDelay / 1000) + 2; // API call + processing time
+    var estimatedMinutes = Math.round((totalBatches * processingTimePerBatch) / 60);
     
-    var estimatedMinutes = timeEstimates[resolution] || Math.round(totalPoints / 5000);
     var formattedTime = estimatedMinutes > 60 ? 
-        Math.round(estimatedMinutes / 60) + ' hours' : 
+        Math.round(estimatedMinutes / 60 * 10) / 10 + ' hours' : 
         estimatedMinutes + ' minutes';
     
     document.getElementById('estimateText').innerHTML = 
         '<strong>~' + formattedTime + '</strong> for ' + totalPoints.toLocaleString() + ' points<br>' +
-        '<small>No time limits - runs until complete!</small>';
+        '<small>' + totalBatches.toLocaleString() + ' batches of ' + batchSize + ' points with ' + batchDelay + 'ms delay</small>';
 }
 
 function showStatus(message, type) {
@@ -672,7 +694,8 @@ function updateSelectionInfo() {
 function checkGenerateButton() {
     var btn = document.getElementById('generateBtn');
     var apiKey = document.getElementById('googleKey').value.trim();
-    btn.disabled = !(mapLoaded && selectedBounds && apiKey && !currentJobId);
+    var jobName = document.getElementById('jobName').value.trim();
+    btn.disabled = !(mapLoaded && selectedBounds && apiKey && jobName && !currentJobId);
 }
 
 function startCloudRunJob() {
@@ -687,16 +710,25 @@ function startCloudRunJob() {
         return;
     }
 
+    var jobName = document.getElementById('jobName').value.trim();
+    if (!jobName) {
+        showStatus('Please enter a job name for identification.', 'error');
+        return;
+    }
+
     var jobData = {
         bounds: selectedBounds,
         resolution: parseInt(document.getElementById('resolution').value),
         apiKey: apiKey,
+        jobName: jobName,
+        batchSize: parseInt(document.getElementById('batchSize').value),
+        batchDelay: parseInt(document.getElementById('batchDelay').value),
         exaggeration: parseFloat(document.getElementById('exaggeration').value),
         baseHeight: parseFloat(document.getElementById('baseHeight').value),
         modelSize: parseFloat(document.getElementById('modelSize').value)
     };
 
-    showStatus('Starting Cloud Run job...', 'info');
+    showStatus('Starting Cloud Run job: "' + jobName + '"...', 'info');
 
     fetch('/api/server-job', {
         method: 'POST',
@@ -718,7 +750,7 @@ function startCloudRunJob() {
         trackedJobs.add(result.jobId);
         saveTrackedJobs();
         
-        showStatus('✅ Cloud Run job started! Job ID: ' + result.jobId, 'success');
+        showStatus('✅ Cloud Run job started! "' + jobName + '" - Job ID: ' + result.jobId, 'success');
         setTimeout(function() {
             showStatus('🎉 You can now close your browser! The job will continue running.', 'success');
         }, 2000);
@@ -890,8 +922,9 @@ document.addEventListener('DOMContentLoaded', function() {
     loadTrackedJobs();
     
     document.getElementById('googleKey').addEventListener('input', checkGenerateButton);
+    document.getElementById('jobName').addEventListener('input', checkGenerateButton);
     
-    showStatus('Enter your Google Maps API key and load the map to get started.', 'info');
+    showStatus('Enter your Google Maps API key, load the map, and give your job a name to get started.', 'info');
 });
 
 console.log('Script loaded successfully - loadMap should work now');

@@ -1,4 +1,18 @@
-// Cloud Run server - Remove artificial time limits
+app.post('/api/server-job', rateLimit, async (req, res) => {
+    try {
+        const { bounds, resolution, apiKey, jobName, batchSize, batchDelay, ...options } = req.body;
+        
+        const finalApiKey = apiKey || GOOGLE_MAPS_API_KEY;
+        
+        if (!finalApiKey) {
+            return res.status(400).json({ error: 'Google Maps API key is required' });
+        }
+        
+        if (!bounds || !resolution) {
+            return res.status(400).json({ error: 'Missing bounds or resolution' });
+        }
+        
+        if (!jobName || job// Cloud Run server - Remove artificial time limits
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
@@ -136,8 +150,8 @@ function rateLimit(req, res, next) {
     next();
 }
 
-// Optimized elevation fetching without artificial time limits
-async function fetchElevationOptimized(bounds, resolution, apiKey, jobId) {
+// Optimized elevation fetching with configurable chunking
+async function fetchElevationOptimized(bounds, resolution, apiKey, jobId, batchSize = 400, batchDelay = 100) {
     const startTime = Date.now();
     
     const latStep = (bounds.north - bounds.south) / resolution;
@@ -145,11 +159,7 @@ async function fetchElevationOptimized(bounds, resolution, apiKey, jobId) {
     
     const totalPoints = (resolution + 1) * (resolution + 1);
     
-    // Optimized settings for best performance
-    const batchSize = 400; // Large batches for efficiency
-    const batchDelay = 100; // Minimal delay for speed
-    
-    console.log(`Job ${jobId}: Processing ${totalPoints} points in ${Math.ceil(totalPoints / batchSize)} batches`);
+    console.log(`Job ${jobId}: Processing ${totalPoints} points in ${Math.ceil(totalPoints / batchSize)} batches (${batchSize} points/batch, ${batchDelay}ms delay)`);
     
     const elevationData = new Array(totalPoints);
     const batchCount = Math.ceil(totalPoints / batchSize);
@@ -231,7 +241,7 @@ async function fetchElevationOptimized(bounds, resolution, apiKey, jobId) {
             }
         }
         
-        // Small delay between batches to be respectful to the API
+        // Configurable delay between batches
         if (batchIndex < batchCount - 1) {
             await new Promise(resolve => setTimeout(resolve, batchDelay));
         }
