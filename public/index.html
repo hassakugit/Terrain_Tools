@@ -150,14 +150,6 @@
             background: #3367d6;
         }
         
-        .button.cancel {
-            background: #dc3545;
-        }
-        
-        .button.cancel:hover {
-            background: #c82333;
-        }
-        
         .status {
             padding: 15px;
             border-radius: 6px;
@@ -494,868 +486,406 @@
         </div>
     </div>
 
-    <script>
-        // Global variables
-        let map, rectangle, selectedBounds = null;
-        let mapLoaded = false;
-        let currentJobId = null;
-        let jobStatusInterval = null;
-        let trackedJobs = new Set();
+<script>
+// Test that JavaScript is loading
+console.log('Script loading...');
 
-        // Define all functions first
-        function loadMap() {
-            console.log('loadMap function called');
-            const apiKey = document.getElementById('googleKey').value.trim();
-            
-            if (!apiKey) {
-                showStatus('Please enter your Google Maps API key.', 'error');
-                return;
-            }
+// Global variables - declare at top
+var map, rectangle, selectedBounds = null;
+var mapLoaded = false;
+var currentJobId = null;
+var jobStatusInterval = null;
+var trackedJobs = new Set();
 
-            showStatus('Loading Google Maps...', 'info');
-            
-            // Set up error handling for Google Maps
-            window.gm_authFailure = function() {
-                showStatus('❌ Google Maps API authentication failed. Check your API key and make sure Maps JavaScript API is enabled.', 'error');
-            };
-            
-            // Remove any existing Google Maps scripts
-            const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
-            if (existingScript) {
-                existingScript.remove();
-            }
-            
-            const script = document.createElement('script');
-            script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=drawing&callback=initGoogleMap&v=weekly`;
-            script.async = true;
-            script.defer = true;
-            
-            script.onerror = function() {
-                showStatus('❌ Failed to load Google Maps script. Check your internet connection and API key.', 'error');
-            };
-            
-            // Timeout after 10 seconds
-            const timeout = setTimeout(() => {
-                showStatus('❌ Google Maps loading timeout. Please check your API key and try again.', 'error');
-            }, 10000);
-            
-            window.initGoogleMap = function() {
-                clearTimeout(timeout);
-                initGoogleMapActual();
-            };
-            
-            document.head.appendChild(script);
-        }
+// Simple function definitions using var to ensure hoisting
+function loadMap() {
+    console.log('loadMap called');
+    var apiKey = document.getElementById('googleKey').value.trim();
+    
+    if (!apiKey) {
+        showStatus('Please enter your Google Maps API key.', 'error');
+        return;
+    }
 
-        function initGoogleMapActual() {
-            try {
-                console.log('Initializing Google Maps...');
-                
-                // Check if Google Maps loaded properly
-                if (typeof google === 'undefined' || !google.maps) {
-                    throw new Error('Google Maps API not loaded properly');
-                }
-                
-                showStatus('Google Maps loaded! Draw a rectangle to select terrain area.', 'success');
-                mapLoaded = true;
-                
-                map = new google.maps.Map(document.getElementById('map'), {
-                    zoom: 10,
-                    center: { lat: 34.6937, lng: 135.5023 }, // Osaka, Japan
-                    mapTypeId: 'terrain',
-                    gestureHandling: 'greedy'
-                });
-
-                // Wait for map to be fully loaded
-                google.maps.event.addListenerOnce(map, 'idle', function() {
-                    console.log('Map fully loaded and ready');
-                    
-                    const drawingManager = new google.maps.drawing.DrawingManager({
-                        drawingMode: google.maps.drawing.OverlayType.RECTANGLE,
-                        drawingControl: true,
-                        drawingControlOptions: {
-                            position: google.maps.ControlPosition.TOP_CENTER,
-                            drawingModes: ['rectangle']
-                        },
-                        rectangleOptions: {
-                            fillColor: '#4285f4',
-                            fillOpacity: 0.3,
-                            strokeWeight: 2,
-                            strokeColor: '#4285f4',
-                            editable: true
-                        }
-                    });
-
-                    drawingManager.setMap(map);
-
-                    drawingManager.addListener('rectanglecomplete', function(rect) {
-                        console.log('Rectangle drawn');
-                        if (rectangle) rectangle.setMap(null);
-                        rectangle = rect;
-                        selectedBounds = {
-                            north: rect.getBounds().getNorthEast().lat(),
-                            south: rect.getBounds().getSouthWest().lat(),
-                            east: rect.getBounds().getNorthEast().lng(),
-                            west: rect.getBounds().getSouthWest().lng()
-                        };
-                        updateSelectionInfo();
-                        updateEstimates();
-                        checkGenerateButton();
-
-                        rect.addListener('bounds_changed', function() {
-                            selectedBounds = {
-                                north: rect.getBounds().getNorthEast().lat(),
-                                south: rect.getBounds().getSouthWest().lat(),
-                                east: rect.getBounds().getNorthEast().lng(),
-                                west: rect.getBounds().getSouthWest().lng()
-                            };
-                            updateSelectionInfo();
-                            updateEstimates();
-                        });
-                    });
-
-                    document.getElementById('loadBtn').style.display = 'none';
-                    showStatus('✅ Map ready! Click the rectangle tool and draw an area to select terrain.', 'success');
-                });
-
-            } catch (error) {
-                console.error('Google Maps initialization error:', error);
-                showStatus('❌ Error initializing Google Maps: ' + error.message, 'error');
-                
-                // Provide helpful troubleshooting info
-                setTimeout(() => {
-                    showStatus('💡 Troubleshooting: 1) Check API key, 2) Enable Maps JavaScript API, 3) Enable Elevation API', 'info');
-                }, 3000);
-            }
-        }
-
-        function updateEstimates() {
-            const resolution = parseInt(document.getElementById('resolution').value);
-            const totalPoints = resolution * resolution;
-            
-            // Cloud Run optimized estimates
-            const timeEstimates = {
-                500: 5,
-                1000: 15,
-                1500: 25,
-                2000: 35,
-                2500: 45,
-                3000: 55
-            };
-            
-            const estimatedMinutes = timeEstimates[resolution] || Math.round(totalPoints / 20000);
-            
-            document.getElementById('estimateText').innerHTML = `
-                <strong>~${estimatedMinutes} minutes</strong> for ${totalPoints.toLocaleString()} points<br>
-                <small>Cloud Run optimized processing</small>
-            `;
-        }
-
-        function showStatus(message, type = 'info') {
-            const status = document.getElementById('status');
-            status.className = `status ${type}`;
-            status.textContent = message;
-        }
-
-        function showProgress(show, progress = 0, text = '', details = '') {
-            const container = document.getElementById('progressContainer');
-            const progressFill = document.getElementById('progressFill');
-            
-            if (show) {
-                container.classList.add('active');
-                progressFill.style.width = progress + '%';
-                document.getElementById('progressText').textContent = text;
-                if (details) {
-                    document.getElementById('progressDetails').textContent = details;
-                }
-            } else {
-                container.classList.remove('active');
-            }
-        }
-
-        function updateJobTrackerMini() {
-            const mini = document.getElementById('jobTrackerMini');
-            const text = document.getElementById('activeJobText');
-            
-            if (currentJobId) {
-                mini.classList.add('active');
-                text.textContent = `Job: ${currentJobId.slice(0, 8)}...`;
-            } else {
-                mini.classList.remove('active');
-                text.textContent = 'No active jobs';
-            }
-        }
-
-        function updateSelectionInfo() {
-            const info = document.getElementById('selectionInfo');
-            if (selectedBounds) {
-                const area = Math.abs(selectedBounds.north - selectedBounds.south) * 
-                           Math.abs(selectedBounds.east - selectedBounds.west);
-                
-                document.getElementById('boundsText').innerHTML = 
-                    `N: ${selectedBounds.north.toFixed(6)}, S: ${selectedBounds.south.toFixed(6)}<br>` +
-                    `E: ${selectedBounds.east.toFixed(6)}, W: ${selectedBounds.west.toFixed(6)}`;
-                
-                let areaWarning = '';
-                if (area > 0.1) areaWarning = '⚠️ Very large area - may hit 55min limit';
-                else if (area > 0.01) areaWarning = '⚠️ Large area - monitor processing time';
-                else areaWarning = '✅ Good size for Cloud Run';
-                
-                document.getElementById('areaText').innerHTML = 
-                    `Area: ${area.toFixed(6)} sq° - ${areaWarning}`;
-                
-                info.style.display = 'block';
-            } else {
-                info.style.display = 'none';
-            }
-        }
-
-        function checkGenerateButton() {
-            const btn = document.getElementById('generateBtn');
-            const apiKey = document.getElementById('googleKey').value.trim();
-            btn.disabled = !(mapLoaded && selectedBounds && apiKey && !currentJobId);
-        }
-
-        function trackJobById() {
-            const jobId = document.getElementById('jobIdInput').value.trim();
-            if (!jobId) {
-                showStatus('Please enter a job ID.', 'error');
-                return;
+    showStatus('Loading Google Maps...', 'info');
+    
+    // Set up error handling
+    window.gm_authFailure = function() {
+        showStatus('Google Maps API authentication failed. Check your API key.', 'error');
+    };
+    
+    // Create script
+    var script = document.createElement('script');
+    script.src = 'https://maps.googleapis.com/maps/api/js?key=' + apiKey + '&libraries=drawing&callback=initGoogleMap';
+    script.async = true;
+    script.defer = true;
+    
+    script.onerror = function() {
+        showStatus('Failed to load Google Maps. Check your API key.', 'error');
+    };
+    
+    // Set up callback
+    window.initGoogleMap = function() {
+        console.log('Google Maps callback fired');
+        try {
+            if (typeof google === 'undefined' || !google.maps) {
+                throw new Error('Google Maps not loaded');
             }
             
-            // Add to tracked jobs
-            trackedJobs.add(jobId);
-            saveTrackedJobs();
+            showStatus('Google Maps loaded! Draw a rectangle to select terrain.', 'success');
+            mapLoaded = true;
             
-            // Start monitoring if not already current job
-            if (currentJobId !== jobId) {
-                currentJobId = jobId;
-                startJobMonitoring(jobId);
-                updateJobTrackerMini();
-            }
-            
-            showStatus(`Now tracking job: ${jobId}`, 'info');
-            updateJobList();
-            document.getElementById('jobIdInput').value = '';
-        }
+            map = new google.maps.Map(document.getElementById('map'), {
+                zoom: 10,
+                center: { lat: 34.6937, lng: 135.5023 },
+                mapTypeId: 'terrain'
+            });
 
-        function startCloudRunJob() {
-            if (!selectedBounds) {
-                showStatus('Please select an area on the map first.', 'error');
-                return;
-            }
-
-            const apiKey = document.getElementById('googleKey').value.trim();
-            if (!apiKey) {
-                showStatus('Please enter your Google Maps API key.', 'error');
-                return;
-            }
-
-            const jobData = {
-                bounds: selectedBounds,
-                resolution: parseInt(document.getElementById('resolution').value),
-                apiKey: apiKey,
-                exaggeration: parseFloat(document.getElementById('exaggeration').value),
-                baseHeight: parseFloat(document.getElementById('baseHeight').value),
-                modelSize: parseFloat(document.getElementById('modelSize').value)
-            };
-
-            showStatus('Starting Cloud Run job...', 'info');
-
-            fetch('/api/server-job', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
+            var drawingManager = new google.maps.drawing.DrawingManager({
+                drawingMode: google.maps.drawing.OverlayType.RECTANGLE,
+                drawingControl: true,
+                drawingControlOptions: {
+                    position: google.maps.ControlPosition.TOP_CENTER,
+                    drawingModes: ['rectangle']
                 },
-                body: JSON.stringify(jobData)
-            })
-            .then(response => {
-                if (!response.ok) {
-                    return response.json().then(error => {
-                        throw new Error(error.error || 'Failed to start Cloud Run job');
-                    });
+                rectangleOptions: {
+                    fillColor: '#4285f4',
+                    fillOpacity: 0.3,
+                    strokeWeight: 2,
+                    strokeColor: '#4285f4',
+                    editable: true
                 }
-                return response.json();
-            })
-            .then(result => {
-                currentJobId = result.jobId;
-                
-                // Add to tracked jobs
-                trackedJobs.add(result.jobId);
-                saveTrackedJobs();
-                
-                showStatus(`✅ Cloud Run job started! Job ID: ${result.jobId}`, 'success');
-                setTimeout(() => {
-                    showStatus('🎉 You can now close your browser! The job will continue running.', 'success');
-                }, 2000);
-                
-                // Start monitoring
-                startJobMonitoring(result.jobId);
-                updateJobList();
-                updateJobTrackerMini();
-                checkGenerateButton();
-            })
-            .catch(error => {
-                showStatus('Error starting Cloud Run job: ' + error.message, 'error');
             });
-        }
 
-        function startJobMonitoring(jobId) {
-            if (jobStatusInterval) {
-                clearInterval(jobStatusInterval);
-            }
-            
-            jobStatusInterval = setInterval(() => {
-                checkJobStatus(jobId);
-            }, 5000); // Check every 5 seconds
-            
-            // Also check immediately
-            checkJobStatus(jobId);
-        }
+            drawingManager.setMap(map);
 
-        function checkJobStatus(jobId) {
-            fetch(`/api/job/${jobId}`)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Job not found');
-                }
-                return response.json();
-            })
-            .then(job => {
-                showProgress(true, job.progress, job.currentStep, 
-                    `Cloud Run job: ${job.status} - ${job.progress}%`);
-                
-                if (job.status === 'completed') {
-                    clearInterval(jobStatusInterval);
-                    currentJobId = null;
-                    updateJobTrackerMini();
-                    showDownloadLinks(job);
-                    showStatus(`🎉 Cloud Run job completed! File size: ${job.fileSize}`, 'success');
-                    showProgress(false);
-                    checkGenerateButton();
-                } else if (job.status === 'failed') {
-                    clearInterval(jobStatusInterval);
-                    currentJobId = null;
-                    updateJobTrackerMini();
-                    showStatus(`❌ Cloud Run job failed: ${job.error}`, 'error');
-                    showProgress(false);
-                    checkGenerateButton();
-                } else if (job.status === 'cancelled') {
-                    clearInterval(jobStatusInterval);
-                    currentJobId = null;
-                    updateJobTrackerMini();
-                    showStatus('Cloud Run job cancelled', 'warning');
-                    showProgress(false);
-                    checkGenerateButton();
-                }
-                
-                updateJobList();
-            })
-            .catch(error => {
-                console.error('Error checking job status:', error);
-            });
-        }
-
-        function showDownloadLinks(job) {
-            const section = document.getElementById('downloadSection');
-            const content = document.getElementById('downloadContent');
-            
-            content.innerHTML = `
-                <a href="/api/job/${job.id}/download" class="download-link" target="_blank">
-                    📥 Download STL (${job.fileSize})
-                </a>
-                <br><small>File available for 7 days</small>
-            `;
-            
-            section.classList.add('active');
-        }
-
-        function trackExistingJob(jobId) {
-            currentJobId = jobId;
-            startJobMonitoring(jobId);
-            updateJobTrackerMini();
-            checkGenerateButton();
-            showStatus(`Now actively tracking job: ${jobId}`, 'info');
-        }
-
-        function removeJob(jobId) {
-            trackedJobs.delete(jobId);
-            saveTrackedJobs();
-            
-            if (currentJobId === jobId) {
-                currentJobId = null;
-                if (jobStatusInterval) {
-                    clearInterval(jobStatusInterval);
-                }
-                updateJobTrackerMini();
-                showProgress(false);
-                checkGenerateButton();
-            }
-            
-            updateJobList();
-            showStatus(`Removed job: ${jobId.slice(0, 12)}...`, 'info');
-        }
-
-        function updateJobList() {
-            const jobList = document.getElementById('jobList');
-            
-            if (trackedJobs.size === 0) {
-                jobList.innerHTML = '<div class="status info">No jobs found. Create a new job below.</div>';
-                return;
-            }
-            
-            let jobsHtml = '';
-            let jobPromises = [];
-            
-            for (const jobId of trackedJobs) {
-                const promise = fetch(`/api/job/${jobId}`)
-                    .then(response => {
-                        if (response.ok) {
-                            return response.json().then(job => ({job, jobId}));
-                        } else {
-                            return {job: null, jobId};
-                        }
-                    })
-                    .catch(() => ({job: null, jobId}));
-                
-                jobPromises.push(promise);
-            }
-            
-            Promise.all(jobPromises).then(results => {
-                jobsHtml = '';
-                
-                for (const {job, jobId} of results) {
-                    if (job) {
-                        const isActive = currentJobId === jobId;
-                        const statusClass = job.status === 'completed' ? 'completed' : 
-                                          job.status === 'failed' ? 'failed' : 
-                                          isActive ? 'active' : '';
-                        
-                        jobsHtml += `
-                            <div class="job-item ${statusClass}">
-                                <div class="job-info">
-                                    <strong>${jobId.slice(0, 12)}...</strong><br>
-                                    <small>${job.resolution}×${job.resolution} - ${job.status} (${job.progress}%)</small><br>
-                                    <small>${job.currentStep}</small>
-                                </div>
-                                <div class="job-actions">
-                                    ${job.status === 'completed' ? 
-                                        `<a href="/api/job/${jobId}/download" style="background: #28a745; color: white; padding: 5px 10px; border-radius: 3px; text-decoration: none; font-size: 0.8rem;">Download</a>` :
-                                        `<button onclick="trackExistingJob('${jobId}')" style="background: #4285f4; color: white;">Track</button>`
-                                    }
-                                    <button onclick="removeJob('${jobId}')" style="background: #dc3545; color: white;">Remove</button>
-                                </div>
-                            </div>
-                        `;
-                    } else {
-                        jobsHtml += `
-                            <div class="job-item">
-                                <div class="job-info">
-                                    <strong>${jobId.slice(0, 12)}...</strong><br>
-                                    <small style="color: #dc3545;">Job not found</small>
-                                </div>
-                                <div class="job-actions">
-                                    <button onclick="removeJob('${jobId}')" style="background: #dc3545; color: white;">Remove</button>
-                                </div>
-                            </div>
-                        `;
-                    }
-                }
-                
-                jobList.innerHTML = jobsHtml;
-            });
-        }
-
-        // Load jobs from localStorage
-        function loadTrackedJobs() {
-            try {
-                const saved = localStorage.getItem('cloudRunJobs');
-                if (saved) {
-                    trackedJobs = new Set(JSON.parse(saved));
-                    updateJobList();
-                }
-            } catch (error) {
-                console.error('Error loading tracked jobs:', error);
-                trackedJobs = new Set();
-            }
-        }
-
-        // Save jobs to localStorage
-        function saveTrackedJobs() {
-            try {
-                localStorage.setItem('cloudRunJobs', JSON.stringify([...trackedJobs]));
-            } catch (error) {
-                console.error('Error saving tracked jobs:', error);
-            }
-        }
-
-        // Check for URL parameters on load (for sharing job links)
-        function checkUrlParams() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const jobId = urlParams.get('job');
-            
-            if (jobId) {
-                document.getElementById('jobIdInput').value = jobId;
-                trackJobById();
-                
-                // Clean URL
-                window.history.replaceState({}, document.title, window.location.pathname);
-            }
-        }
-
-        function copyJobId(jobId) {
-            navigator.clipboard.writeText(jobId).then(function() {
-                showStatus('Job ID copied to clipboard!', 'success');
-            }).catch(function() {
-                showStatus('Failed to copy job ID', 'error');
-            });
-        }
-
-        function shareJobLink(jobId) {
-            const shareUrl = `${window.location.origin}${window.location.pathname}?job=${jobId}`;
-            navigator.clipboard.writeText(shareUrl).then(function() {
-                showStatus('Job tracking link copied to clipboard!', 'success');
-            }).catch(function() {
-                showStatus('Failed to copy job link', 'error');
-            });
-        }
-
-        // Now assign all functions to window object after they're defined
-        window.loadMap = loadMap;
-        window.trackJobById = trackJobById;
-        window.startCloudRunJob = startCloudRunJob;
-        window.trackExistingJob = trackExistingJob;
-        window.removeJob = removeJob;
-        window.copyJobId = copyJobId;
-        window.shareJobLink = shareJobLink;
-        window.updateEstimates = updateEstimates;
-
-        function updateSelectionInfo() {
-            const info = document.getElementById('selectionInfo');
-            if (selectedBounds) {
-                const area = Math.abs(selectedBounds.north - selectedBounds.south) * 
-                           Math.abs(selectedBounds.east - selectedBounds.west);
-                
-                document.getElementById('boundsText').innerHTML = 
-                    `N: ${selectedBounds.north.toFixed(6)}, S: ${selectedBounds.south.toFixed(6)}<br>` +
-                    `E: ${selectedBounds.east.toFixed(6)}, W: ${selectedBounds.west.toFixed(6)}`;
-                
-                let areaWarning = '';
-                if (area > 0.1) areaWarning = '⚠️ Very large area - may hit 55min limit';
-                else if (area > 0.01) areaWarning = '⚠️ Large area - monitor processing time';
-                else areaWarning = '✅ Good size for Cloud Run';
-                
-                document.getElementById('areaText').innerHTML = 
-                    `Area: ${area.toFixed(6)} sq° - ${areaWarning}`;
-                
-                info.style.display = 'block';
-            } else {
-                info.style.display = 'none';
-            }
-        }
-
-        function checkGenerateButton() {
-            const btn = document.getElementById('generateBtn');
-            const apiKey = document.getElementById('googleKey').value.trim();
-            btn.disabled = !(mapLoaded && selectedBounds && apiKey && !currentJobId);
-        }
-
-        async function startCloudRunJob() {
-            if (!selectedBounds) {
-                showStatus('Please select an area on the map first.', 'error');
-                return;
-            }
-
-            const apiKey = document.getElementById('googleKey').value.trim();
-            if (!apiKey) {
-                showStatus('Please enter your Google Maps API key.', 'error');
-                return;
-            }
-
-            try {
-                showStatus('Starting Cloud Run job...', 'info');
-                
-                const jobData = {
-                    bounds: selectedBounds,
-                    resolution: parseInt(document.getElementById('resolution').value),
-                    apiKey: apiKey,
-                    exaggeration: parseFloat(document.getElementById('exaggeration').value),
-                    baseHeight: parseFloat(document.getElementById('baseHeight').value),
-                    modelSize: parseFloat(document.getElementById('modelSize').value)
+            drawingManager.addListener('rectanglecomplete', function(rect) {
+                if (rectangle) rectangle.setMap(null);
+                rectangle = rect;
+                selectedBounds = {
+                    north: rect.getBounds().getNorthEast().lat(),
+                    south: rect.getBounds().getSouthWest().lat(),
+                    east: rect.getBounds().getNorthEast().lng(),
+                    west: rect.getBounds().getSouthWest().lng()
                 };
+                updateSelectionInfo();
+                updateEstimates();
+                checkGenerateButton();
 
-                const response = await fetch('/api/server-job', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(jobData)
+                rect.addListener('bounds_changed', function() {
+                    selectedBounds = {
+                        north: rect.getBounds().getNorthEast().lat(),
+                        south: rect.getBounds().getSouthWest().lat(),
+                        east: rect.getBounds().getNorthEast().lng(),
+                        west: rect.getBounds().getSouthWest().lng()
+                    };
+                    updateSelectionInfo();
+                    updateEstimates();
                 });
+            });
 
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || 'Failed to start Cloud Run job');
-                }
-
-                const result = await response.json();
-                currentJobId = result.jobId;
-                
-                // Add to tracked jobs
-                trackedJobs.add(result.jobId);
-                saveTrackedJobs();
-                
-                showStatus(`✅ Cloud Run job started! Job ID: ${result.jobId}`, 'success');
-                showStatus('🎉 You can now close your browser! The job will continue running.', 'success');
-                
-                // Start monitoring
-                startJobMonitoring(result.jobId);
-                updateJobList();
-                updateJobTrackerMini();
-                checkGenerateButton();
-
-            } catch (error) {
-                showStatus('Error starting Cloud Run job: ' + error.message, 'error');
-            }
+            document.getElementById('loadBtn').style.display = 'none';
+            
+        } catch (error) {
+            console.error('Map init error:', error);
+            showStatus('Error initializing Google Maps: ' + error.message, 'error');
         }
+    };
+    
+    document.head.appendChild(script);
+}
 
-        function startJobMonitoring(jobId) {
-            if (jobStatusInterval) {
-                clearInterval(jobStatusInterval);
-            }
-            
-            jobStatusInterval = setInterval(() => {
-                checkJobStatus(jobId);
-            }, 5000); // Check every 5 seconds
-            
-            // Also check immediately
-            checkJobStatus(jobId);
+function updateEstimates() {
+    var resolution = parseInt(document.getElementById('resolution').value);
+    var totalPoints = resolution * resolution;
+    
+    var timeEstimates = {
+        500: 5,
+        1000: 15,
+        1500: 25,
+        2000: 35,
+        2500: 45,
+        3000: 55
+    };
+    
+    var estimatedMinutes = timeEstimates[resolution] || Math.round(totalPoints / 20000);
+    
+    document.getElementById('estimateText').innerHTML = 
+        '<strong>~' + estimatedMinutes + ' minutes</strong> for ' + totalPoints.toLocaleString() + ' points<br>' +
+        '<small>Cloud Run optimized processing</small>';
+}
+
+function showStatus(message, type) {
+    var status = document.getElementById('status');
+    status.className = 'status ' + (type || 'info');
+    status.textContent = message;
+}
+
+function showProgress(show, progress, text, details) {
+    var container = document.getElementById('progressContainer');
+    var progressFill = document.getElementById('progressFill');
+    
+    if (show) {
+        container.classList.add('active');
+        progressFill.style.width = (progress || 0) + '%';
+        document.getElementById('progressText').textContent = text || '';
+        if (details) {
+            document.getElementById('progressDetails').textContent = details;
         }
+    } else {
+        container.classList.remove('active');
+    }
+}
 
-        async function checkJobStatus(jobId) {
-            try {
-                const response = await fetch(`/api/job/${jobId}`);
-                if (!response.ok) {
-                    throw new Error('Job not found');
-                }
-                
-                const job = await response.json();
-                
-                showProgress(true, job.progress, job.currentStep, 
-                    `Cloud Run job: ${job.status} - ${job.progress}%`);
-                
-                if (job.status === 'completed') {
-                    clearInterval(jobStatusInterval);
-                    currentJobId = null;
-                    updateJobTrackerMini();
-                    showDownloadLinks(job);
-                    showStatus(`🎉 Cloud Run job completed! File size: ${job.fileSize}`, 'success');
-                    showProgress(false);
-                    checkGenerateButton();
-                } else if (job.status === 'failed') {
-                    clearInterval(jobStatusInterval);
-                    currentJobId = null;
-                    updateJobTrackerMini();
-                    showStatus(`❌ Cloud Run job failed: ${job.error}`, 'error');
-                    showProgress(false);
-                    checkGenerateButton();
-                } else if (job.status === 'cancelled') {
-                    clearInterval(jobStatusInterval);
-                    currentJobId = null;
-                    updateJobTrackerMini();
-                    showStatus('Cloud Run job cancelled', 'warning');
-                    showProgress(false);
-                    checkGenerateButton();
-                }
-                
-                updateJobList();
-                
-            } catch (error) {
-                console.error('Error checking job status:', error);
-            }
+function updateSelectionInfo() {
+    var info = document.getElementById('selectionInfo');
+    if (selectedBounds) {
+        var area = Math.abs(selectedBounds.north - selectedBounds.south) * 
+                  Math.abs(selectedBounds.east - selectedBounds.west);
+        
+        document.getElementById('boundsText').innerHTML = 
+            'N: ' + selectedBounds.north.toFixed(6) + ', S: ' + selectedBounds.south.toFixed(6) + '<br>' +
+            'E: ' + selectedBounds.east.toFixed(6) + ', W: ' + selectedBounds.west.toFixed(6);
+        
+        var areaWarning = area > 0.1 ? '⚠️ Very large area - may hit 55min limit' :
+                         area > 0.01 ? '⚠️ Large area - monitor processing time' :
+                         '✅ Good size for Cloud Run';
+        
+        document.getElementById('areaText').innerHTML = 
+            'Area: ' + area.toFixed(6) + ' sq° - ' + areaWarning;
+        
+        info.style.display = 'block';
+    } else {
+        info.style.display = 'none';
+    }
+}
+
+function checkGenerateButton() {
+    var btn = document.getElementById('generateBtn');
+    var apiKey = document.getElementById('googleKey').value.trim();
+    btn.disabled = !(mapLoaded && selectedBounds && apiKey && !currentJobId);
+}
+
+function startCloudRunJob() {
+    if (!selectedBounds) {
+        showStatus('Please select an area on the map first.', 'error');
+        return;
+    }
+
+    var apiKey = document.getElementById('googleKey').value.trim();
+    if (!apiKey) {
+        showStatus('Please enter your Google Maps API key.', 'error');
+        return;
+    }
+
+    var jobData = {
+        bounds: selectedBounds,
+        resolution: parseInt(document.getElementById('resolution').value),
+        apiKey: apiKey,
+        exaggeration: parseFloat(document.getElementById('exaggeration').value),
+        baseHeight: parseFloat(document.getElementById('baseHeight').value),
+        modelSize: parseFloat(document.getElementById('modelSize').value)
+    };
+
+    showStatus('Starting Cloud Run job...', 'info');
+
+    fetch('/api/server-job', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(jobData)
+    })
+    .then(function(response) {
+        if (!response.ok) {
+            return response.json().then(function(error) {
+                throw new Error(error.error || 'Failed to start job');
+            });
         }
+        return response.json();
+    })
+    .then(function(result) {
+        currentJobId = result.jobId;
+        trackedJobs.add(result.jobId);
+        saveTrackedJobs();
+        
+        showStatus('✅ Cloud Run job started! Job ID: ' + result.jobId, 'success');
+        setTimeout(function() {
+            showStatus('🎉 You can now close your browser! The job will continue running.', 'success');
+        }, 2000);
+        
+        startJobMonitoring(result.jobId);
+        updateJobList();
+        checkGenerateButton();
+    })
+    .catch(function(error) {
+        showStatus('Error starting job: ' + error.message, 'error');
+    });
+}
 
-        function showDownloadLinks(job) {
-            const section = document.getElementById('downloadSection');
-            const content = document.getElementById('downloadContent');
-            
-            content.innerHTML = `
-                <a href="/api/job/${job.id}/download" class="download-link" target="_blank">
-                    📥 Download STL (${job.fileSize})
-                </a>
-                <br><small>File available for 7 days</small>
-            `;
-            
-            section.classList.add('active');
+function startJobMonitoring(jobId) {
+    if (jobStatusInterval) {
+        clearInterval(jobStatusInterval);
+    }
+    
+    jobStatusInterval = setInterval(function() {
+        checkJobStatus(jobId);
+    }, 5000);
+    
+    checkJobStatus(jobId);
+}
+
+function checkJobStatus(jobId) {
+    fetch('/api/job/' + jobId)
+    .then(function(response) {
+        if (!response.ok) {
+            throw new Error('Job not found');
         }
-
-        function trackJobById() {
-            const jobId = document.getElementById('jobIdInput').value.trim();
-            if (!jobId) {
-                showStatus('Please enter a job ID.', 'error');
-                return;
-            }
-            
-            // Add to tracked jobs
-            trackedJobs.add(jobId);
-            saveTrackedJobs();
-            
-            // Start monitoring if not already current job
-            if (currentJobId !== jobId) {
-                currentJobId = jobId;
-                startJobMonitoring(jobId);
-                updateJobTrackerMini();
-            }
-            
-            showStatus(`Now tracking job: ${jobId}`, 'info');
-            updateJobList();
-            document.getElementById('jobIdInput').value = '';
-        }
-
-        async function updateJobList() {
-            const jobList = document.getElementById('jobList');
-            
-            if (trackedJobs.size === 0) {
-                jobList.innerHTML = '<div class="status info">No jobs found. Create a new job below.</div>';
-                return;
-            }
-            
-            let jobsHtml = '';
-            
-            for (const jobId of trackedJobs) {
-                try {
-                    const response = await fetch(`/api/job/${jobId}`);
-                    if (response.ok) {
-                        const job = await response.json();
-                        const isActive = currentJobId === jobId;
-                        const statusClass = job.status === 'completed' ? 'completed' : 
-                                          job.status === 'failed' ? 'failed' : 
-                                          isActive ? 'active' : '';
-                        
-                        jobsHtml += `
-                            <div class="job-item ${statusClass}">
-                                <div class="job-info">
-                                    <strong>${jobId.slice(0, 12)}...</strong><br>
-                                    <small>${job.resolution}×${job.resolution} - ${job.status} (${job.progress}%)</small><br>
-                                    <small>${job.currentStep}</small>
-                                </div>
-                                <div class="job-actions">
-                                    ${job.status === 'completed' ? 
-                                        `<a href="/api/job/${jobId}/download" style="background: #28a745; color: white; padding: 5px 10px; border-radius: 3px; text-decoration: none; font-size: 0.8rem;">Download</a>` :
-                                        `<button onclick="trackExistingJob('${jobId}')" style="background: #4285f4; color: white;">Track</button>`
-                                    }
-                                    <button onclick="removeJob('${jobId}')" style="background: #dc3545; color: white;">Remove</button>
-                                </div>
-                            </div>
-                        `;
-                    } else {
-                        // Job not found, mark for removal
-                        jobsHtml += `
-                            <div class="job-item">
-                                <div class="job-info">
-                                    <strong>${jobId.slice(0, 12)}...</strong><br>
-                                    <small style="color: #dc3545;">Job not found</small>
-                                </div>
-                                <div class="job-actions">
-                                    <button onclick="removeJob('${jobId}')" style="background: #dc3545; color: white;">Remove</button>
-                                </div>
-                            </div>
-                        `;
-                    }
-                } catch (error) {
-                    console.error('Error fetching job:', error);
-                }
-            }
-            
-            jobList.innerHTML = jobsHtml;
-        }
-
-        function trackExistingJob(jobId) {
-            currentJobId = jobId;
-            startJobMonitoring(jobId);
-            updateJobTrackerMini();
+        return response.json();
+    })
+    .then(function(job) {
+        showProgress(true, job.progress, job.currentStep, 
+            'Cloud Run job: ' + job.status + ' - ' + job.progress + '%');
+        
+        if (job.status === 'completed') {
+            clearInterval(jobStatusInterval);
+            currentJobId = null;
+            showDownloadLinks(job);
+            showStatus('🎉 Job completed! File size: ' + job.fileSize, 'success');
+            showProgress(false);
             checkGenerateButton();
-            showStatus(`Now actively tracking job: ${jobId}`, 'info');
+        } else if (job.status === 'failed') {
+            clearInterval(jobStatusInterval);
+            currentJobId = null;
+            showStatus('❌ Job failed: ' + job.error, 'error');
+            showProgress(false);
+            checkGenerateButton();
         }
+        
+        updateJobList();
+    })
+    .catch(function(error) {
+        console.error('Error checking job status:', error);
+    });
+}
 
-        function removeJob(jobId) {
-            trackedJobs.delete(jobId);
-            saveTrackedJobs();
-            
-            if (currentJobId === jobId) {
-                currentJobId = null;
-                if (jobStatusInterval) {
-                    clearInterval(jobStatusInterval);
-                }
-                updateJobTrackerMini();
-                showProgress(false);
-                checkGenerateButton();
-            }
-            
+function showDownloadLinks(job) {
+    var section = document.getElementById('downloadSection');
+    var content = document.getElementById('downloadContent');
+    
+    content.innerHTML = 
+        '<a href="/api/job/' + job.id + '/download" class="download-link" target="_blank">' +
+        '📥 Download STL (' + job.fileSize + ')' +
+        '</a>' +
+        '<br><small>File available for 7 days</small>';
+    
+    section.classList.add('active');
+}
+
+function trackJobById() {
+    var jobId = document.getElementById('jobIdInput').value.trim();
+    if (!jobId) {
+        showStatus('Please enter a job ID.', 'error');
+        return;
+    }
+    
+    trackedJobs.add(jobId);
+    saveTrackedJobs();
+    
+    if (currentJobId !== jobId) {
+        currentJobId = jobId;
+        startJobMonitoring(jobId);
+    }
+    
+    showStatus('Now tracking job: ' + jobId, 'info');
+    updateJobList();
+    document.getElementById('jobIdInput').value = '';
+}
+
+function trackExistingJob(jobId) {
+    currentJobId = jobId;
+    startJobMonitoring(jobId);
+    showStatus('Now actively tracking job: ' + jobId, 'info');
+}
+
+function removeJob(jobId) {
+    trackedJobs.delete(jobId);
+    saveTrackedJobs();
+    
+    if (currentJobId === jobId) {
+        currentJobId = null;
+        if (jobStatusInterval) {
+            clearInterval(jobStatusInterval);
+        }
+        showProgress(false);
+        checkGenerateButton();
+    }
+    
+    updateJobList();
+    showStatus('Removed job: ' + jobId.slice(0, 12) + '...', 'info');
+}
+
+function updateJobList() {
+    var jobList = document.getElementById('jobList');
+    
+    if (trackedJobs.size === 0) {
+        jobList.innerHTML = '<div class="status info">No jobs found. Create a new job below.</div>';
+        return;
+    }
+    
+    var jobsHtml = '';
+    var jobArray = Array.from(trackedJobs);
+    
+    for (var i = 0; i < jobArray.length; i++) {
+        var jobId = jobArray[i];
+        jobsHtml += '<div class="job-item">' +
+                    '<div class="job-info">' +
+                    '<strong>' + jobId.slice(0, 12) + '...</strong><br>' +
+                    '<small>Checking status...</small>' +
+                    '</div>' +
+                    '<div class="job-actions">' +
+                    '<button onclick="trackExistingJob(\'' + jobId + '\')" style="background: #4285f4; color: white;">Track</button>' +
+                    '<button onclick="removeJob(\'' + jobId + '\')" style="background: #dc3545; color: white;">Remove</button>' +
+                    '</div>' +
+                    '</div>';
+    }
+    
+    jobList.innerHTML = jobsHtml;
+}
+
+function loadTrackedJobs() {
+    try {
+        var saved = localStorage.getItem('cloudRunJobs');
+        if (saved) {
+            trackedJobs = new Set(JSON.parse(saved));
             updateJobList();
-            showStatus(`Removed job: ${jobId.slice(0, 12)}...`, 'info');
         }
+    } catch (error) {
+        console.error('Error loading jobs:', error);
+        trackedJobs = new Set();
+    }
+}
 
-        // Check for URL parameters on load (for sharing job links)
-        function checkUrlParams() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const jobId = urlParams.get('job');
-            
-            if (jobId) {
-                document.getElementById('jobIdInput').value = jobId;
-                trackJobById();
-                
-                // Clean URL
-                window.history.replaceState({}, document.title, window.location.pathname);
-            }
-        }
+function saveTrackedJobs() {
+    try {
+        localStorage.setItem('cloudRunJobs', JSON.stringify(Array.from(trackedJobs)));
+    } catch (error) {
+        console.error('Error saving jobs:', error);
+    }
+}
 
-        // Initialize everything
-        document.addEventListener('DOMContentLoaded', function() {
-            updateEstimates();
-            loadTrackedJobs();
-            checkUrlParams();
-            
-            // Check for changes in API key
-            document.getElementById('googleKey').addEventListener('input', checkGenerateButton);
-            
-            // Auto-refresh job list every 30 seconds
-            setInterval(updateJobList, 30000);
-            
-            showStatus('Enter your Google Maps API key and load the map to get started.', 'info');
-        });
+// Initialize when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, initializing...');
+    updateEstimates();
+    loadTrackedJobs();
+    
+    document.getElementById('googleKey').addEventListener('input', checkGenerateButton);
+    
+    showStatus('Enter your Google Maps API key and load the map to get started.', 'info');
+});
 
-        // Keep the page alive to maintain job monitoring
-        setInterval(async () => {
-            try {
-                await fetch('/api/keepalive');
-            } catch (error) {
-                console.log('Keep-alive ping failed');
-            }
-        }, 5 * 60 * 1000); // Every 5 minutes
-
-        // Handle page visibility changes
-        document.addEventListener('visibilitychange', function() {
-            if (!document.hidden && currentJobId) {
-                // Page became visible, refresh job status
-                checkJobStatus(currentJobId);
-            }
-        });
-
-        // Copy job ID to clipboard
-        function copyJobId(jobId) {
-            navigator.clipboard.writeText(jobId).then(function() {
-                showStatus('Job ID copied to clipboard!', 'success');
-            }).catch(function() {
-                showStatus('Failed to copy job ID', 'error');
-            });
-        }
-
-        // Share job link
-        function shareJobLink(jobId) {
-            const shareUrl = `${window.location.origin}${window.location.pathname}?job=${jobId}`;
-            navigator.clipboard.writeText(shareUrl).then(function() {
-                showStatus('Job tracking link copied to clipboard!', 'success');
-            }).catch(function() {
-                showStatus('Failed to copy job link', 'error');
-            });
-        }
+console.log('Script loaded successfully - loadMap should work now');
+</script>
+</body>
+</html>
