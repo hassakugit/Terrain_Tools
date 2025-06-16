@@ -1,20 +1,4 @@
-app.post('/api/server-job', rateLimit, async (req, res) => {
-    try {
-        const { bounds, resolution, apiKey, jobName, batchSize, batchDelay, ...options } = req.body;
-        
-        const finalApiKey = apiKey || GOOGLE_MAPS_API_KEY;
-        
-        if (!finalApiKey) {
-            return res.status(400).json({ error: 'Google Maps API key is required' });
-        }
-        
-        if (!bounds || !resolution) {
-            return res.status(400).json({ error: 'Missing bounds or resolution' });
-        }
-        
-        if (!jobName || jobName.trim().length === 0) {
-            return res.status(400).json({ error: 'Job name is required for identification' });
-        }// Cloud Run server - Remove artificial time limits
+// Clean server.js with no syntax errors
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
@@ -123,7 +107,7 @@ app.use(express.static('public'));
 // Rate limiting
 const requestCounts = new Map();
 const RATE_LIMIT_WINDOW = 60000;
-const MAX_REQUESTS_PER_WINDOW = 5; // Reduced for Cloud Run
+const MAX_REQUESTS_PER_WINDOW = 5;
 
 function rateLimit(req, res, next) {
     const clientIP = req.ip || req.connection.remoteAddress;
@@ -227,7 +211,6 @@ async function fetchElevationOptimized(bounds, resolution, apiKey, jobId, batchS
                 const lat = parseFloat(locations[i].split(',')[0]);
                 const lng = parseFloat(locations[i].split(',')[1]);
                 
-                // Generate realistic terrain based on coordinates
                 const baseElevation = 100;
                 const terrainVariation = Math.sin(lat * 0.05) * Math.cos(lng * 0.05) * 300;
                 const detailVariation = Math.sin(lat * 0.2) * Math.cos(lng * 0.2) * 100;
@@ -254,7 +237,7 @@ async function fetchElevationOptimized(bounds, resolution, apiKey, jobId, batchS
     return elevationData;
 }
 
-// Generate STL content (optimized for speed)
+// Generate STL content
 function generateSTL(elevationData, resolution, options = {}) {
     const {
         exaggeration = 2.0,
@@ -264,7 +247,7 @@ function generateSTL(elevationData, resolution, options = {}) {
     
     console.log(`Generating STL: ${resolution}×${resolution}`);
     
-    // Fast min/max calculation
+    // Find elevation range
     let minElevation = Infinity;
     let maxElevation = -Infinity;
     
@@ -278,43 +261,70 @@ function generateSTL(elevationData, resolution, options = {}) {
     if (minElevation === maxElevation) maxElevation = minElevation + 1;
     const elevationRange = maxElevation - minElevation;
     
-    // Build STL with string concatenation (faster than array)
-    let stl = `solid cloud_terrain_${resolution}x${resolution}\n`;
-    const step = modelSize / resolution;
-    
-    // Generate terrain surface
-    for (let i = 0; i < resolution; i++) {
-        for (let j = 0; j < resolution; j++) {
-            const idx1 = i * (resolution + 1) + j;
-            const idx2 = (i + 1) * (resolution + 1) + j;
-            const idx3 = i * (resolution + 1) + (j + 1);
-            const idx4 = (i + 1) * (resolution + 1) + (j + 1);
-            
-            const getHeight = (idx) => {
-                const point = elevationData[idx];
-                const elevation = point ? point.elevation : minElevation;
-                return ((elevation - minElevation) / elevationRange) * modelSize * 0.4 * exaggeration + baseHeight;
-            };
-            
-            const z1 = getHeight(idx1);
-            const z2 = getHeight(idx2);
-            const z3 = getHeight(idx3);
-            const z4 = getHeight(idx4);
-            
-            const x1 = i * step, y1 = j * step;
-            const x2 = (i + 1) * step, y2 = (j + 1) * step;
-            
-            // Two triangles per quad (optimized format)
-            stl += `  facet normal 0.000000 0.000000 1.000000\n    outer loop\n      vertex ${x1.toFixed(3)} ${y1.toFixed(3)} ${z1.toFixed(3)}\n      vertex ${x2.toFixed(3)} ${y1.toFixed(3)} ${z2.toFixed(3)}\n      vertex ${x1.toFixed(3)} ${y2.toFixed(3)} ${z3.toFixed(3)}\n    endloop\n  endfacet\n`;
-            stl += `  facet normal 0.000000 0.000000 1.000000\n    outer loop\n      vertex ${x2.toFixed(3)} ${y1.toFixed(3)} ${z2.toFixed(3)}\n      vertex ${x2.toFixed(3)} ${y2.toFixed(3)} ${z4.toFixed(3)}\n      vertex ${x1.toFixed(3)} ${y2.toFixed(3)} ${z3.toFixed(3)}\n    endloop\n  endfacet\n`;
+    // Build elevation grid
+    const grid = [];
+    for (let i = 0; i <= resolution; i++) {
+        grid[i] = [];
+        for (let j = 0; j <= resolution; j++) {
+            const index = i * (resolution + 1) + j;
+            const point = elevationData[index];
+            const elevation = point ? point.elevation : minElevation;
+            const normalizedHeight = ((elevation - minElevation) / elevationRange) * 
+                                   modelSize * 0.4 * exaggeration;
+            grid[i][j] = normalizedHeight + baseHeight;
         }
     }
     
-    // Add base (simplified)
-    stl += `  facet normal 0.000000 0.000000 -1.000000\n    outer loop\n      vertex 0.000 0.000 0.000\n      vertex 0.000 ${modelSize.toFixed(3)} 0.000\n      vertex ${modelSize.toFixed(3)} 0.000 0.000\n    endloop\n  endfacet\n`;
-    stl += `  facet normal 0.000000 0.000000 -1.000000\n    outer loop\n      vertex ${modelSize.toFixed(3)} 0.000 0.000\n      vertex 0.000 ${modelSize.toFixed(3)} 0.000\n      vertex ${modelSize.toFixed(3)} ${modelSize.toFixed(3)} 0.000\n    endloop\n  endfacet\n`;
+    // Generate STL
+    let stl = `solid server_terrain_${resolution}x${resolution}\n`;
+    const step = modelSize / resolution;
     
-    stl += `endsolid cloud_terrain_${resolution}x${resolution}\n`;
+    // Generate terrain surface triangles
+    for (let i = 0; i < resolution; i++) {
+        for (let j = 0; j < resolution; j++) {
+            const x1 = i * step, y1 = j * step;
+            const x2 = (i + 1) * step, y2 = (j + 1) * step;
+            
+            const z1 = grid[i][j], z2 = grid[i + 1][j];
+            const z3 = grid[i][j + 1], z4 = grid[i + 1][j + 1];
+            
+            // Two triangles per quad
+            stl += `  facet normal 0.000000 0.000000 1.000000\n`;
+            stl += `    outer loop\n`;
+            stl += `      vertex ${x1.toFixed(3)} ${y1.toFixed(3)} ${z1.toFixed(3)}\n`;
+            stl += `      vertex ${x2.toFixed(3)} ${y1.toFixed(3)} ${z2.toFixed(3)}\n`;
+            stl += `      vertex ${x1.toFixed(3)} ${y2.toFixed(3)} ${z3.toFixed(3)}\n`;
+            stl += `    endloop\n`;
+            stl += `  endfacet\n`;
+            
+            stl += `  facet normal 0.000000 0.000000 1.000000\n`;
+            stl += `    outer loop\n`;
+            stl += `      vertex ${x2.toFixed(3)} ${y1.toFixed(3)} ${z2.toFixed(3)}\n`;
+            stl += `      vertex ${x2.toFixed(3)} ${y2.toFixed(3)} ${z4.toFixed(3)}\n`;
+            stl += `      vertex ${x1.toFixed(3)} ${y2.toFixed(3)} ${z3.toFixed(3)}\n`;
+            stl += `    endloop\n`;
+            stl += `  endfacet\n`;
+        }
+    }
+    
+    // Add base
+    stl += `  facet normal 0.000000 0.000000 -1.000000\n`;
+    stl += `    outer loop\n`;
+    stl += `      vertex 0.000 0.000 0.000\n`;
+    stl += `      vertex 0.000 ${modelSize.toFixed(3)} 0.000\n`;
+    stl += `      vertex ${modelSize.toFixed(3)} 0.000 0.000\n`;
+    stl += `    endloop\n`;
+    stl += `  endfacet\n`;
+    
+    stl += `  facet normal 0.000000 0.000000 -1.000000\n`;
+    stl += `    outer loop\n`;
+    stl += `      vertex ${modelSize.toFixed(3)} 0.000 0.000\n`;
+    stl += `      vertex 0.000 ${modelSize.toFixed(3)} 0.000\n`;
+    stl += `      vertex ${modelSize.toFixed(3)} ${modelSize.toFixed(3)} 0.000\n`;
+    stl += `    endloop\n`;
+    stl += `  endfacet\n`;
+    
+    stl += `endsolid server_terrain_${resolution}x${resolution}\n`;
     return stl;
 }
 
@@ -324,14 +334,16 @@ async function processJob(jobId) {
     if (!job) return;
     
     try {
-        console.log(`Starting Cloud Run job ${jobId}`);
+        console.log(`Starting job ${jobId}: "${job.jobName}"`);
         
-        // Fetch elevation data
+        // Fetch elevation data with configurable chunking
         const elevationData = await fetchElevationOptimized(
             job.bounds, 
             job.resolution, 
             job.apiKey, 
-            jobId
+            jobId,
+            job.batchSize || 400,
+            job.batchDelay || 100
         );
         
         if (jobStorage.get(jobId)?.status === 'cancelled') {
@@ -359,8 +371,9 @@ async function processJob(jobId) {
             progress: 95
         });
         
-        // Save STL file to persistent storage
-        const filename = `terrain_${job.resolution}x${job.resolution}_${jobId.slice(0, 8)}.stl`;
+        // Save STL file with job name in filename
+        const safeJobName = job.jobName.replace(/[^a-zA-Z0-9\-_]/g, '_');
+        const filename = `${safeJobName}_${job.resolution}x${job.resolution}_${jobId.slice(0, 8)}.stl`;
         const filePath = path.join(RESULTS_DIR, filename);
         
         await fs.writeFile(filePath, stlContent);
@@ -377,10 +390,10 @@ async function processJob(jobId) {
             filename: filename
         });
         
-        console.log(`Cloud Run job ${jobId} completed successfully - ${fileSizeMB}MB`);
+        console.log(`Job ${jobId} "${job.jobName}" completed successfully - ${fileSizeMB}MB`);
         
     } catch (error) {
-        console.error(`Cloud Run job ${jobId} failed:`, error);
+        console.error(`Job ${jobId} "${job.jobName}" failed:`, error);
         jobStorage.update(jobId, {
             status: 'failed',
             error: error.message,
@@ -394,7 +407,7 @@ async function processJob(jobId) {
 // Start server-side job
 app.post('/api/server-job', rateLimit, async (req, res) => {
     try {
-        const { bounds, resolution, apiKey, ...options } = req.body;
+        const { bounds, resolution, apiKey, jobName, batchSize, batchDelay, ...options } = req.body;
         
         const finalApiKey = apiKey || GOOGLE_MAPS_API_KEY;
         
@@ -406,40 +419,61 @@ app.post('/api/server-job', rateLimit, async (req, res) => {
             return res.status(400).json({ error: 'Missing bounds or resolution' });
         }
         
-        // Remove artificial limits - let it run as long as needed
+        if (!jobName || jobName.trim().length === 0) {
+            return res.status(400).json({ error: 'Job name is required for identification' });
+        }
+        
         if (resolution > 10000) {
             return res.status(400).json({ 
-                error: `Resolution too high (max 10000×10000 for practical reasons). Requested: ${resolution}×${resolution}` 
+                error: `Resolution too high (max 10000×10000). Requested: ${resolution}×${resolution}` 
             });
         }
+        
+        // Validate batch settings
+        const finalBatchSize = Math.min(Math.max(batchSize || 400, 50), 500);
+        const finalBatchDelay = Math.min(Math.max(batchDelay || 100, 50), 2000);
         
         // Create job
         const job = jobStorage.create({
             bounds,
             resolution,
             apiKey: finalApiKey,
+            jobName: jobName.trim(),
+            batchSize: finalBatchSize,
+            batchDelay: finalBatchDelay,
             dataSource: 'google',
             ...options
         });
         
-        console.log(`Created job ${job.id} for ${resolution}×${resolution} terrain - no time limits`);
+        console.log(`Created job ${job.id}: "${jobName}" (${resolution}×${resolution}, batch: ${finalBatchSize}/${finalBatchDelay}ms)`);
         
         // Start processing in background
         processJob(job.id).catch(error => {
             console.error(`Background job ${job.id} error:`, error);
         });
         
+        // Calculate time estimate
+        const totalPoints = resolution * resolution;
+        const totalBatches = Math.ceil(totalPoints / finalBatchSize);
+        const estimatedSeconds = totalBatches * (finalBatchDelay / 1000 + 2);
+        const estimatedMinutes = Math.round(estimatedSeconds / 60);
+        
         res.json({
             jobId: job.id,
             status: job.status,
-            message: 'Server job started successfully - will run as long as needed',
-            estimatedTime: `${Math.round((resolution * resolution) / 5000)} minutes (rough estimate)`
+            jobName: jobName.trim(),
+            message: 'Server job started successfully',
+            batchSettings: {
+                batchSize: finalBatchSize,
+                batchDelay: finalBatchDelay
+            },
+            estimatedTime: `${estimatedMinutes} minutes`
         });
         
     } catch (error) {
-        console.error('Error creating Cloud Run job:', error);
+        console.error('Error creating server job:', error);
         res.status(500).json({ 
-            error: 'Failed to create job: ' + error.message 
+            error: 'Failed to create server job: ' + error.message 
         });
     }
 });
@@ -452,10 +486,8 @@ app.get('/api/job/:jobId', (req, res) => {
         return res.status(404).json({ error: 'Job not found' });
     }
     
-    // Return job status without large data
     const { downloadPath, ...jobStatus } = job;
     
-    // Add download link if completed
     if (job.status === 'completed' && job.filename) {
         jobStatus.downloadLink = `/api/job/${job.id}/download`;
     }
@@ -514,10 +546,11 @@ app.get('/api/job/:jobId/download', async (req, res) => {
     }
 });
 
-// List all jobs (helpful for debugging)
+// List all jobs
 app.get('/api/jobs', (req, res) => {
     const jobs = jobStorage.getAll().map(job => ({
         id: job.id,
+        jobName: job.jobName,
         status: job.status,
         progress: job.progress,
         resolution: job.resolution,
@@ -528,7 +561,7 @@ app.get('/api/jobs', (req, res) => {
     res.json({ jobs });
 });
 
-// Keep-alive endpoint to prevent Cloud Run cold starts
+// Keep-alive endpoint
 app.get('/api/keepalive', (req, res) => {
     res.json({ 
         status: 'alive', 
@@ -549,7 +582,7 @@ app.get('/health', (req, res) => {
         timestamp: new Date().toISOString(),
         platform: 'Cloud Run - No Time Limits',
         maxResolution: '10000×10000',
-        maxTime: 'Unlimited (until job completes)',
+        maxTime: 'Unlimited',
         activeJobs: activeJobs,
         totalJobs: jobs.length
     });
@@ -560,15 +593,14 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Clean up old jobs and files (keep last 7 days)
+// Clean up old jobs periodically (keep last 7 days)
 const cleanupOldJobs = async () => {
-    const cutoff = Date.now() - (7 * 24 * 60 * 60 * 1000); // 7 days ago
+    const cutoff = Date.now() - (7 * 24 * 60 * 60 * 1000);
     const jobs = jobStorage.getAll();
     let cleaned = 0;
     
     for (const job of jobs) {
         if (new Date(job.createdAt).getTime() < cutoff) {
-            // Delete file if exists
             if (job.downloadPath) {
                 try {
                     await fs.unlink(job.downloadPath);
@@ -577,7 +609,6 @@ const cleanupOldJobs = async () => {
                 }
             }
             
-            // Remove job from storage
             jobStorage.delete(job.id);
             cleaned++;
         }
@@ -588,7 +619,6 @@ const cleanupOldJobs = async () => {
     }
 };
 
-// Run cleanup every 6 hours
 setInterval(cleanupOldJobs, 6 * 60 * 60 * 1000);
 
 // Error handling middleware
@@ -617,7 +647,6 @@ process.on('SIGTERM', () => {
 const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`🏔️  Cloud Run Terrain Generator on port ${PORT}`);
     console.log(`📱 Frontend: http://localhost:${PORT}`);
-    console.log(`☁️  Optimized for Google Cloud Run`);
-    console.log(`⏱️  Max processing time: 55 minutes`);
+    console.log(`☁️  No time limits - runs until complete`);
     console.log(`💾 Persistent job storage enabled`);
 });
