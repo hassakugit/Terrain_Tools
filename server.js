@@ -12,7 +12,9 @@ app.post('/api/server-job', rateLimit, async (req, res) => {
             return res.status(400).json({ error: 'Missing bounds or resolution' });
         }
         
-        if (!jobName || job// Cloud Run server - Remove artificial time limits
+        if (!jobName || jobName.trim().length === 0) {
+            return res.status(400).json({ error: 'Job name is required for identification' });
+        }// Cloud Run server - Remove artificial time limits
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
