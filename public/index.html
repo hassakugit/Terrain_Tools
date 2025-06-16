@@ -383,8 +383,8 @@
         <div class="cloud-run-info">
             <strong>☁️ Running on Google Cloud Run</strong><br>
             ✅ Start jobs and close browser &nbsp;&nbsp;
-            ✅ 55-minute processing limit &nbsp;&nbsp;
-            ✅ Max 3000×3000 resolution &nbsp;&nbsp;
+            ✅ No time limits - runs until complete &nbsp;&nbsp;
+            ✅ Max 10000×10000 resolution &nbsp;&nbsp;
             ✅ 7-day file storage
         </div>
 
@@ -427,19 +427,22 @@
                 </div>
 
                 <div class="control-group">
-                    <label for="resolution">Resolution (Cloud Run Optimized):</label>
+                    <label for="resolution">Resolution (No Limits!):</label>
                     <select id="resolution" onchange="updateEstimates()">
                         <option value="500">500×500 (250K points) - ~5 min</option>
                         <option value="1000" selected>1000×1000 (1M points) - ~15 min</option>
                         <option value="1500">1500×1500 (2.25M points) - ~25 min</option>
-                        <option value="2000">2000×2000 (4M points) - ~35 min</option>
-                        <option value="2500">2500×2500 (6.25M points) - ~45 min</option>
-                        <option value="3000">3000×3000 (9M points) - ~55 min (MAX)</option>
+                        <option value="2000">2000×2000 (4M points) - ~45 min</option>
+                        <option value="3000">3000×3000 (9M points) - ~2 hours</option>
+                        <option value="4000">4000×4000 (16M points) - ~4 hours</option>
+                        <option value="5000">5000×5000 (25M points) - ~6 hours</option>
+                        <option value="7500">7500×7500 (56M points) - ~12 hours</option>
+                        <option value="10000">10000×10000 (100M points) - ~24 hours</option>
                     </select>
                 </div>
 
                 <div id="timeEstimate" class="time-estimate">
-                    <strong>⏱️ Cloud Run Estimate:</strong><br>
+                    <strong>⏱️ Estimated Time:</strong><br>
                     <span id="estimateText">~15 minutes for 1000×1000 resolution</span>
                 </div>
 
@@ -603,16 +606,22 @@ function updateEstimates() {
         500: 5,
         1000: 15,
         1500: 25,
-        2000: 35,
-        2500: 45,
-        3000: 55
+        2000: 45,
+        3000: 120,  // 2 hours
+        4000: 240,  // 4 hours
+        5000: 360,  // 6 hours
+        7500: 720,  // 12 hours
+        10000: 1440 // 24 hours
     };
     
-    var estimatedMinutes = timeEstimates[resolution] || Math.round(totalPoints / 20000);
+    var estimatedMinutes = timeEstimates[resolution] || Math.round(totalPoints / 5000);
+    var formattedTime = estimatedMinutes > 60 ? 
+        Math.round(estimatedMinutes / 60) + ' hours' : 
+        estimatedMinutes + ' minutes';
     
     document.getElementById('estimateText').innerHTML = 
-        '<strong>~' + estimatedMinutes + ' minutes</strong> for ' + totalPoints.toLocaleString() + ' points<br>' +
-        '<small>Cloud Run optimized processing</small>';
+        '<strong>~' + formattedTime + '</strong> for ' + totalPoints.toLocaleString() + ' points<br>' +
+        '<small>No time limits - runs until complete!</small>';
 }
 
 function showStatus(message, type) {
@@ -647,9 +656,9 @@ function updateSelectionInfo() {
             'N: ' + selectedBounds.north.toFixed(6) + ', S: ' + selectedBounds.south.toFixed(6) + '<br>' +
             'E: ' + selectedBounds.east.toFixed(6) + ', W: ' + selectedBounds.west.toFixed(6);
         
-        var areaWarning = area > 0.1 ? '⚠️ Very large area - may hit 55min limit' :
-                         area > 0.01 ? '⚠️ Large area - monitor processing time' :
-                         '✅ Good size for Cloud Run';
+                        var areaWarning = area > 0.1 ? '⚠️ Very large area - may take many hours' :
+                         area > 0.01 ? '⚠️ Large area - plan for long processing time' :
+                         '✅ Good size for reasonable processing time';
         
         document.getElementById('areaText').innerHTML = 
             'Area: ' + area.toFixed(6) + ' sq° - ' + areaWarning;

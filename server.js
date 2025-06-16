@@ -1,4 +1,4 @@
-// Cloud Run optimized server with persistent job storage
+// Cloud Run server - Remove artificial time limits
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
@@ -11,7 +11,7 @@ const app = express();
 const PORT = process.env.PORT || 2021;
 const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
 
-// Use file-based storage for job persistence (or Google Cloud Storage in production)
+// Use file-based storage for job persistence
 const JOBS_FILE = '/tmp/jobs.json';
 const RESULTS_DIR = '/tmp/results';
 
@@ -136,27 +136,20 @@ function rateLimit(req, res, next) {
     next();
 }
 
-// Cloud Run optimized elevation fetching
+// Optimized elevation fetching without artificial time limits
 async function fetchElevationOptimized(bounds, resolution, apiKey, jobId) {
     const startTime = Date.now();
-    const maxProcessingTime = 55 * 60 * 1000; // 55 minutes for Cloud Run
     
     const latStep = (bounds.north - bounds.south) / resolution;
     const lngStep = (bounds.east - bounds.west) / resolution;
     
     const totalPoints = (resolution + 1) * (resolution + 1);
     
-    // Aggressive settings for Cloud Run
-    const batchSize = 400; // Larger batches
-    const batchDelay = 150; // Faster requests
+    // Optimized settings for best performance
+    const batchSize = 400; // Large batches for efficiency
+    const batchDelay = 100; // Minimal delay for speed
     
-    // Estimate processing time
-    const estimatedTime = (totalPoints / batchSize) * (batchDelay + 1000);
-    if (estimatedTime > maxProcessingTime) {
-        throw new Error(`Job too large for Cloud Run. Estimated ${Math.round(estimatedTime/60000)} minutes, max 55 minutes.`);
-    }
-    
-    console.log(`Job ${jobId}: Processing ${totalPoints} points, estimated ${Math.round(estimatedTime/60000)} minutes`);
+    console.log(`Job ${jobId}: Processing ${totalPoints} points in ${Math.ceil(totalPoints / batchSize)} batches`);
     
     const elevationData = new Array(totalPoints);
     const batchCount = Math.ceil(totalPoints / batchSize);
@@ -168,11 +161,6 @@ async function fetchElevationOptimized(bounds, resolution, apiKey, jobId) {
     });
     
     for (let batchIndex = 0; batchIndex < batchCount; batchIndex++) {
-        // Check time limit
-        if (Date.now() - startTime > maxProcessingTime) {
-            throw new Error(`Timeout approaching. Processed ${batchIndex}/${batchCount} batches.`);
-        }
-        
         // Check if job was cancelled
         const job = jobStorage.get(jobId);
         if (!job || job.status === 'cancelled') {
@@ -201,7 +189,7 @@ async function fetchElevationOptimized(bounds, resolution, apiKey, jobId) {
                     locations: locations.join('|'),
                     key: apiKey
                 },
-                timeout: 25000 // Shorter timeout for faster failure
+                timeout: 30000
             });
             
             if (response.data.status === 'OK' && response.data.results) {
@@ -243,7 +231,7 @@ async function fetchElevationOptimized(bounds, resolution, apiKey, jobId) {
             }
         }
         
-        // Minimal delay between batches
+        // Small delay between batches to be respectful to the API
         if (batchIndex < batchCount - 1) {
             await new Promise(resolve => setTimeout(resolve, batchDelay));
         }
@@ -406,10 +394,10 @@ app.post('/api/server-job', rateLimit, async (req, res) => {
             return res.status(400).json({ error: 'Missing bounds or resolution' });
         }
         
-        // Cloud Run specific limits
-        if (resolution > 3000) {
+        // Remove artificial limits - let it run as long as needed
+        if (resolution > 10000) {
             return res.status(400).json({ 
-                error: `Resolution too high for Cloud Run (max 3000×3000). Requested: ${resolution}×${resolution}` 
+                error: `Resolution too high (max 10000×10000 for practical reasons). Requested: ${resolution}×${resolution}` 
             });
         }
         
@@ -422,7 +410,7 @@ app.post('/api/server-job', rateLimit, async (req, res) => {
             ...options
         });
         
-        console.log(`Created Cloud Run job ${job.id} for ${resolution}×${resolution} terrain`);
+        console.log(`Created job ${job.id} for ${resolution}×${resolution} terrain - no time limits`);
         
         // Start processing in background
         processJob(job.id).catch(error => {
@@ -432,8 +420,8 @@ app.post('/api/server-job', rateLimit, async (req, res) => {
         res.json({
             jobId: job.id,
             status: job.status,
-            message: 'Cloud Run job started successfully',
-            estimatedTime: `${Math.round((resolution * resolution) / 10000)} minutes`
+            message: 'Server job started successfully - will run as long as needed',
+            estimatedTime: `${Math.round((resolution * resolution) / 5000)} minutes (rough estimate)`
         });
         
     } catch (error) {
@@ -547,9 +535,9 @@ app.get('/health', (req, res) => {
     res.json({ 
         status: 'healthy',
         timestamp: new Date().toISOString(),
-        platform: 'Cloud Run Optimized',
-        maxResolution: '3000×3000',
-        maxTime: '55 minutes',
+        platform: 'Cloud Run - No Time Limits',
+        maxResolution: '10000×10000',
+        maxTime: 'Unlimited (until job completes)',
         activeJobs: activeJobs,
         totalJobs: jobs.length
     });
