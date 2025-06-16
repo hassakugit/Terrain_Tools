@@ -502,97 +502,7 @@
         let jobStatusInterval = null;
         let trackedJobs = new Set();
 
-        // Ensure all functions are globally accessible
-        window.loadMap = loadMap;
-        window.trackJobById = trackJobById;
-        window.startCloudRunJob = startCloudRunJob;
-        window.trackExistingJob = trackExistingJob;
-        window.removeJob = removeJob;
-        window.copyJobId = copyJobId;
-        window.shareJobLink = shareJobLink;
-        window.updateEstimates = updateEstimates;
-        window.initGoogleMap = initGoogleMap;
-
-        // Load jobs from localStorage
-        function loadTrackedJobs() {
-            try {
-                const saved = localStorage.getItem('cloudRunJobs');
-                if (saved) {
-                    trackedJobs = new Set(JSON.parse(saved));
-                    updateJobList();
-                }
-            } catch (error) {
-                console.error('Error loading tracked jobs:', error);
-                trackedJobs = new Set();
-            }
-        }
-
-        // Save jobs to localStorage
-        function saveTrackedJobs() {
-            try {
-                localStorage.setItem('cloudRunJobs', JSON.stringify([...trackedJobs]));
-            } catch (error) {
-                console.error('Error saving tracked jobs:', error);
-            }
-        }
-
-        function updateEstimates() {
-            const resolution = parseInt(document.getElementById('resolution').value);
-            const totalPoints = resolution * resolution;
-            
-            // Cloud Run optimized estimates
-            const timeEstimates = {
-                500: 5,
-                1000: 15,
-                1500: 25,
-                2000: 35,
-                2500: 45,
-                3000: 55
-            };
-            
-            const estimatedMinutes = timeEstimates[resolution] || Math.round(totalPoints / 20000);
-            
-            document.getElementById('estimateText').innerHTML = `
-                <strong>~${estimatedMinutes} minutes</strong> for ${totalPoints.toLocaleString()} points<br>
-                <small>Cloud Run optimized processing</small>
-            `;
-        }
-
-        function showStatus(message, type = 'info') {
-            const status = document.getElementById('status');
-            status.className = `status ${type}`;
-            status.textContent = message;
-        }
-
-        function showProgress(show, progress = 0, text = '', details = '') {
-            const container = document.getElementById('progressContainer');
-            const progressFill = document.getElementById('progressFill');
-            
-            if (show) {
-                container.classList.add('active');
-                progressFill.style.width = progress + '%';
-                document.getElementById('progressText').textContent = text;
-                if (details) {
-                    document.getElementById('progressDetails').textContent = details;
-                }
-            } else {
-                container.classList.remove('active');
-            }
-        }
-
-        function updateJobTrackerMini() {
-            const mini = document.getElementById('jobTrackerMini');
-            const text = document.getElementById('activeJobText');
-            
-            if (currentJobId) {
-                mini.classList.add('active');
-                text.textContent = `Job: ${currentJobId.slice(0, 8)}...`;
-            } else {
-                mini.classList.remove('active');
-                text.textContent = 'No active jobs';
-            }
-        }
-
+        // Define all functions first
         function loadMap() {
             console.log('loadMap function called');
             const apiKey = document.getElementById('googleKey').value.trim();
@@ -718,6 +628,407 @@
                 }, 3000);
             }
         }
+
+        function updateEstimates() {
+            const resolution = parseInt(document.getElementById('resolution').value);
+            const totalPoints = resolution * resolution;
+            
+            // Cloud Run optimized estimates
+            const timeEstimates = {
+                500: 5,
+                1000: 15,
+                1500: 25,
+                2000: 35,
+                2500: 45,
+                3000: 55
+            };
+            
+            const estimatedMinutes = timeEstimates[resolution] || Math.round(totalPoints / 20000);
+            
+            document.getElementById('estimateText').innerHTML = `
+                <strong>~${estimatedMinutes} minutes</strong> for ${totalPoints.toLocaleString()} points<br>
+                <small>Cloud Run optimized processing</small>
+            `;
+        }
+
+        function showStatus(message, type = 'info') {
+            const status = document.getElementById('status');
+            status.className = `status ${type}`;
+            status.textContent = message;
+        }
+
+        function showProgress(show, progress = 0, text = '', details = '') {
+            const container = document.getElementById('progressContainer');
+            const progressFill = document.getElementById('progressFill');
+            
+            if (show) {
+                container.classList.add('active');
+                progressFill.style.width = progress + '%';
+                document.getElementById('progressText').textContent = text;
+                if (details) {
+                    document.getElementById('progressDetails').textContent = details;
+                }
+            } else {
+                container.classList.remove('active');
+            }
+        }
+
+        function updateJobTrackerMini() {
+            const mini = document.getElementById('jobTrackerMini');
+            const text = document.getElementById('activeJobText');
+            
+            if (currentJobId) {
+                mini.classList.add('active');
+                text.textContent = `Job: ${currentJobId.slice(0, 8)}...`;
+            } else {
+                mini.classList.remove('active');
+                text.textContent = 'No active jobs';
+            }
+        }
+
+        function updateSelectionInfo() {
+            const info = document.getElementById('selectionInfo');
+            if (selectedBounds) {
+                const area = Math.abs(selectedBounds.north - selectedBounds.south) * 
+                           Math.abs(selectedBounds.east - selectedBounds.west);
+                
+                document.getElementById('boundsText').innerHTML = 
+                    `N: ${selectedBounds.north.toFixed(6)}, S: ${selectedBounds.south.toFixed(6)}<br>` +
+                    `E: ${selectedBounds.east.toFixed(6)}, W: ${selectedBounds.west.toFixed(6)}`;
+                
+                let areaWarning = '';
+                if (area > 0.1) areaWarning = '⚠️ Very large area - may hit 55min limit';
+                else if (area > 0.01) areaWarning = '⚠️ Large area - monitor processing time';
+                else areaWarning = '✅ Good size for Cloud Run';
+                
+                document.getElementById('areaText').innerHTML = 
+                    `Area: ${area.toFixed(6)} sq° - ${areaWarning}`;
+                
+                info.style.display = 'block';
+            } else {
+                info.style.display = 'none';
+            }
+        }
+
+        function checkGenerateButton() {
+            const btn = document.getElementById('generateBtn');
+            const apiKey = document.getElementById('googleKey').value.trim();
+            btn.disabled = !(mapLoaded && selectedBounds && apiKey && !currentJobId);
+        }
+
+        function trackJobById() {
+            const jobId = document.getElementById('jobIdInput').value.trim();
+            if (!jobId) {
+                showStatus('Please enter a job ID.', 'error');
+                return;
+            }
+            
+            // Add to tracked jobs
+            trackedJobs.add(jobId);
+            saveTrackedJobs();
+            
+            // Start monitoring if not already current job
+            if (currentJobId !== jobId) {
+                currentJobId = jobId;
+                startJobMonitoring(jobId);
+                updateJobTrackerMini();
+            }
+            
+            showStatus(`Now tracking job: ${jobId}`, 'info');
+            updateJobList();
+            document.getElementById('jobIdInput').value = '';
+        }
+
+        function startCloudRunJob() {
+            if (!selectedBounds) {
+                showStatus('Please select an area on the map first.', 'error');
+                return;
+            }
+
+            const apiKey = document.getElementById('googleKey').value.trim();
+            if (!apiKey) {
+                showStatus('Please enter your Google Maps API key.', 'error');
+                return;
+            }
+
+            const jobData = {
+                bounds: selectedBounds,
+                resolution: parseInt(document.getElementById('resolution').value),
+                apiKey: apiKey,
+                exaggeration: parseFloat(document.getElementById('exaggeration').value),
+                baseHeight: parseFloat(document.getElementById('baseHeight').value),
+                modelSize: parseFloat(document.getElementById('modelSize').value)
+            };
+
+            showStatus('Starting Cloud Run job...', 'info');
+
+            fetch('/api/server-job', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(jobData)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(error => {
+                        throw new Error(error.error || 'Failed to start Cloud Run job');
+                    });
+                }
+                return response.json();
+            })
+            .then(result => {
+                currentJobId = result.jobId;
+                
+                // Add to tracked jobs
+                trackedJobs.add(result.jobId);
+                saveTrackedJobs();
+                
+                showStatus(`✅ Cloud Run job started! Job ID: ${result.jobId}`, 'success');
+                setTimeout(() => {
+                    showStatus('🎉 You can now close your browser! The job will continue running.', 'success');
+                }, 2000);
+                
+                // Start monitoring
+                startJobMonitoring(result.jobId);
+                updateJobList();
+                updateJobTrackerMini();
+                checkGenerateButton();
+            })
+            .catch(error => {
+                showStatus('Error starting Cloud Run job: ' + error.message, 'error');
+            });
+        }
+
+        function startJobMonitoring(jobId) {
+            if (jobStatusInterval) {
+                clearInterval(jobStatusInterval);
+            }
+            
+            jobStatusInterval = setInterval(() => {
+                checkJobStatus(jobId);
+            }, 5000); // Check every 5 seconds
+            
+            // Also check immediately
+            checkJobStatus(jobId);
+        }
+
+        function checkJobStatus(jobId) {
+            fetch(`/api/job/${jobId}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Job not found');
+                }
+                return response.json();
+            })
+            .then(job => {
+                showProgress(true, job.progress, job.currentStep, 
+                    `Cloud Run job: ${job.status} - ${job.progress}%`);
+                
+                if (job.status === 'completed') {
+                    clearInterval(jobStatusInterval);
+                    currentJobId = null;
+                    updateJobTrackerMini();
+                    showDownloadLinks(job);
+                    showStatus(`🎉 Cloud Run job completed! File size: ${job.fileSize}`, 'success');
+                    showProgress(false);
+                    checkGenerateButton();
+                } else if (job.status === 'failed') {
+                    clearInterval(jobStatusInterval);
+                    currentJobId = null;
+                    updateJobTrackerMini();
+                    showStatus(`❌ Cloud Run job failed: ${job.error}`, 'error');
+                    showProgress(false);
+                    checkGenerateButton();
+                } else if (job.status === 'cancelled') {
+                    clearInterval(jobStatusInterval);
+                    currentJobId = null;
+                    updateJobTrackerMini();
+                    showStatus('Cloud Run job cancelled', 'warning');
+                    showProgress(false);
+                    checkGenerateButton();
+                }
+                
+                updateJobList();
+            })
+            .catch(error => {
+                console.error('Error checking job status:', error);
+            });
+        }
+
+        function showDownloadLinks(job) {
+            const section = document.getElementById('downloadSection');
+            const content = document.getElementById('downloadContent');
+            
+            content.innerHTML = `
+                <a href="/api/job/${job.id}/download" class="download-link" target="_blank">
+                    📥 Download STL (${job.fileSize})
+                </a>
+                <br><small>File available for 7 days</small>
+            `;
+            
+            section.classList.add('active');
+        }
+
+        function trackExistingJob(jobId) {
+            currentJobId = jobId;
+            startJobMonitoring(jobId);
+            updateJobTrackerMini();
+            checkGenerateButton();
+            showStatus(`Now actively tracking job: ${jobId}`, 'info');
+        }
+
+        function removeJob(jobId) {
+            trackedJobs.delete(jobId);
+            saveTrackedJobs();
+            
+            if (currentJobId === jobId) {
+                currentJobId = null;
+                if (jobStatusInterval) {
+                    clearInterval(jobStatusInterval);
+                }
+                updateJobTrackerMini();
+                showProgress(false);
+                checkGenerateButton();
+            }
+            
+            updateJobList();
+            showStatus(`Removed job: ${jobId.slice(0, 12)}...`, 'info');
+        }
+
+        function updateJobList() {
+            const jobList = document.getElementById('jobList');
+            
+            if (trackedJobs.size === 0) {
+                jobList.innerHTML = '<div class="status info">No jobs found. Create a new job below.</div>';
+                return;
+            }
+            
+            let jobsHtml = '';
+            let jobPromises = [];
+            
+            for (const jobId of trackedJobs) {
+                const promise = fetch(`/api/job/${jobId}`)
+                    .then(response => {
+                        if (response.ok) {
+                            return response.json().then(job => ({job, jobId}));
+                        } else {
+                            return {job: null, jobId};
+                        }
+                    })
+                    .catch(() => ({job: null, jobId}));
+                
+                jobPromises.push(promise);
+            }
+            
+            Promise.all(jobPromises).then(results => {
+                jobsHtml = '';
+                
+                for (const {job, jobId} of results) {
+                    if (job) {
+                        const isActive = currentJobId === jobId;
+                        const statusClass = job.status === 'completed' ? 'completed' : 
+                                          job.status === 'failed' ? 'failed' : 
+                                          isActive ? 'active' : '';
+                        
+                        jobsHtml += `
+                            <div class="job-item ${statusClass}">
+                                <div class="job-info">
+                                    <strong>${jobId.slice(0, 12)}...</strong><br>
+                                    <small>${job.resolution}×${job.resolution} - ${job.status} (${job.progress}%)</small><br>
+                                    <small>${job.currentStep}</small>
+                                </div>
+                                <div class="job-actions">
+                                    ${job.status === 'completed' ? 
+                                        `<a href="/api/job/${jobId}/download" style="background: #28a745; color: white; padding: 5px 10px; border-radius: 3px; text-decoration: none; font-size: 0.8rem;">Download</a>` :
+                                        `<button onclick="trackExistingJob('${jobId}')" style="background: #4285f4; color: white;">Track</button>`
+                                    }
+                                    <button onclick="removeJob('${jobId}')" style="background: #dc3545; color: white;">Remove</button>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        jobsHtml += `
+                            <div class="job-item">
+                                <div class="job-info">
+                                    <strong>${jobId.slice(0, 12)}...</strong><br>
+                                    <small style="color: #dc3545;">Job not found</small>
+                                </div>
+                                <div class="job-actions">
+                                    <button onclick="removeJob('${jobId}')" style="background: #dc3545; color: white;">Remove</button>
+                                </div>
+                            </div>
+                        `;
+                    }
+                }
+                
+                jobList.innerHTML = jobsHtml;
+            });
+        }
+
+        // Load jobs from localStorage
+        function loadTrackedJobs() {
+            try {
+                const saved = localStorage.getItem('cloudRunJobs');
+                if (saved) {
+                    trackedJobs = new Set(JSON.parse(saved));
+                    updateJobList();
+                }
+            } catch (error) {
+                console.error('Error loading tracked jobs:', error);
+                trackedJobs = new Set();
+            }
+        }
+
+        // Save jobs to localStorage
+        function saveTrackedJobs() {
+            try {
+                localStorage.setItem('cloudRunJobs', JSON.stringify([...trackedJobs]));
+            } catch (error) {
+                console.error('Error saving tracked jobs:', error);
+            }
+        }
+
+        // Check for URL parameters on load (for sharing job links)
+        function checkUrlParams() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const jobId = urlParams.get('job');
+            
+            if (jobId) {
+                document.getElementById('jobIdInput').value = jobId;
+                trackJobById();
+                
+                // Clean URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        }
+
+        function copyJobId(jobId) {
+            navigator.clipboard.writeText(jobId).then(function() {
+                showStatus('Job ID copied to clipboard!', 'success');
+            }).catch(function() {
+                showStatus('Failed to copy job ID', 'error');
+            });
+        }
+
+        function shareJobLink(jobId) {
+            const shareUrl = `${window.location.origin}${window.location.pathname}?job=${jobId}`;
+            navigator.clipboard.writeText(shareUrl).then(function() {
+                showStatus('Job tracking link copied to clipboard!', 'success');
+            }).catch(function() {
+                showStatus('Failed to copy job link', 'error');
+            });
+        }
+
+        // Now assign all functions to window object after they're defined
+        window.loadMap = loadMap;
+        window.trackJobById = trackJobById;
+        window.startCloudRunJob = startCloudRunJob;
+        window.trackExistingJob = trackExistingJob;
+        window.removeJob = removeJob;
+        window.copyJobId = copyJobId;
+        window.shareJobLink = shareJobLink;
+        window.updateEstimates = updateEstimates;
 
         function updateSelectionInfo() {
             const info = document.getElementById('selectionInfo');
